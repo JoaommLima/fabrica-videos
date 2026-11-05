@@ -60,12 +60,17 @@ def preparar(pasta: Path) -> Path:
 
     t = 0.0
     palavras_estimadas = []
+    palavras_reais = []
     tem_audio = True
     for b in rot["blocos"]:
         wav = audio_dir / f"{b['id']}.wav"
         palavras = re.findall(r"\S+", b["narracao"])
         if wav.exists():
             fala = duracao_wav(wav)
+            meta = audio_dir / f"{b['id']}.json"
+            if meta.exists():  # tempos reais das palavras (gerados por pipeline/voz.py)
+                for w in carregar_json(meta)["palavras"]:
+                    palavras_reais.append({"texto": w["texto"], "inicio": round(t + w["inicio"], 3), "fim": round(t + w["fim"], 3)})
         else:
             tem_audio = False
             fala = max(2.5, len(palavras) / PALAVRAS_POR_SEG)
@@ -82,7 +87,7 @@ def preparar(pasta: Path) -> Path:
         "tema": cfg["tema"],
         "blocos": rot["blocos"],
         "mostrarLegenda": rot.get("mostrarLegenda", True),
-        "legendas": carregar_json(legendas_reais) if legendas_reais.exists() else palavras_estimadas,
+        "legendas": carregar_json(legendas_reais) if legendas_reais.exists() else (palavras_reais if tem_audio else palavras_estimadas),
     }
     destino = pasta / "saida" / "props.json"
     salvar_json(destino, props)

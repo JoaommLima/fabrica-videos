@@ -16,20 +16,28 @@
     "fonteCodigo": "JetBrains Mono"
   },
   "voz": {
-    "motor": "f5-tts",
+    "motor": "chatterbox-multilingual",
     "amostra": "canal/voz/amostra.wav",
-    "transcricaoAmostra": "canal/voz/amostra.txt",
-    "velocidade": 1.0
+    "expressividade": 0.5,
+    "cfgPeso": 0.5,
+    "temperatura": 0.8,
+    "whisper": "large-v3"
   },
   "producao": {
     "videosPorSemana": 2,
     "shortsPorVideo": 3,
-    "duracaoAlvoMinutos": [8, 12],
+    "duracaoAlvoMinutos": [
+      8,
+      12
+    ],
     "loudnessAlvoLUFS": -14
   },
   "publicacao": {
     "privacidadeInicial": "private",
-    "diasDePostagem": ["terca", "sexta"],
+    "diasDePostagem": [
+      "terca",
+      "sexta"
+    ],
     "horario": "18:00",
     "fusoHorario": "America/Sao_Paulo",
     "marcarUsoDeIA": true,

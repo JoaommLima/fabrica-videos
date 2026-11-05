@@ -1,0 +1,5 @@
+# Ambiente de voz (.venv-voz). O PyTorch com CUDA é instalado antes pelo instalar-voz.ps1.
+chatterbox-tts==0.1.7
+faster-whisper>=1.1.0
+num2words>=0.5.13
+soundfile>=0.12

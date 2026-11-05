@@ -75,6 +75,24 @@ input[type=range]{width:100%;accent-color:var(--amb)}
 @keyframes g{to{transform:rotate(360deg)}}
 .aviso-topo{background:#3a2a12;border:1px solid var(--amb);padding:10px 14px;border-radius:4px;margin-bottom:14px}
 .toast{position:fixed;right:20px;top:20px;background:var(--card2);border:1px solid var(--amb);padding:12px 16px;border-radius:6px;z-index:20;max-width:380px}
+/* progresso */
+#prog{position:sticky;top:0;z-index:9;background:#1f1a14;border-bottom:1px solid var(--line);padding:12px 24px;display:none}
+#prog.on{display:block}
+#prog .lin{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;max-width:1240px;margin:0 auto}
+#prog .pct{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--amb);min-width:78px}
+#prog .tit{font-weight:700}
+#prog .det{color:var(--sub);font-size:14px}
+#prog .tempo{margin-left:auto;color:var(--sub);font-size:13px;font-family:var(--mono)}
+#prog .trilho{max-width:1240px;margin:8px auto 0;height:14px;background:var(--bg2);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+#prog .enche{height:100%;width:0;background:repeating-linear-gradient(-45deg,var(--amb) 0 12px,#e8962c 12px 24px);background-size:34px 34px;transition:width .6s ease;animation:anda 1s linear infinite}
+#prog.fim .enche{animation:none;background:var(--ok)}
+#prog.erro .enche{animation:none;background:var(--err)}
+#prog .etapas{display:flex;gap:6px;max-width:1240px;margin:8px auto 0;flex-wrap:wrap}
+#prog .etapas span{font-size:12px;padding:2px 8px;border-radius:3px;background:var(--bg2);color:var(--sub);border:1px solid var(--line)}
+#prog .etapas span.feita{color:var(--ok);border-color:#3f5f5c}
+#prog .etapas span.atual{color:#161310;background:var(--amb);border-color:var(--amb);font-weight:700}
+@keyframes anda{to{background-position:34px 0}}
+#log .fio{position:absolute;left:0;top:-2px;height:3px;background:var(--ok);width:0;transition:width .6s}
 .swatch{display:flex;gap:4px}.swatch span{width:18px;height:18px;border-radius:3px;display:inline-block;border:1px solid #6e6354}
 .estilos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 @media(max-width:700px){.estilos{grid-template-columns:repeat(2,1fr)}}
@@ -96,9 +114,15 @@ input[type=range]{width:100%;accent-color:var(--amb)}
     <button class="btn peq" onclick="acao('atualizar')" title="Baixa as melhorias mais recentes do GitHub (git pull)">⟳ Atualizar fábrica</button>
   </div>
 </header>
+<div id="prog">
+  <div class="lin"><span class="pct" id="pPct">0%</span><span class="tit" id="pTit"></span><span class="det" id="pDet"></span><span class="tempo" id="pTempo"></span></div>
+  <div class="trilho"><div class="enche" id="pBarra"></div></div>
+  <div class="etapas" id="pEtapas"></div>
+</div>
 <main id="conteudo"></main>
 
 <div id="log">
+  <div class="fio" id="logFio"></div>
   <div class="topo" onclick="document.getElementById('log').classList.toggle('aberto')">
     <span id="logIcone">•</span><b id="logTitulo">Nenhuma tarefa rodando</b><span class="dica" id="logTempo"></span>
     <span style="margin-left:auto" class="dica">clique para ver o log ▴</span>
@@ -387,6 +411,7 @@ async function lerTarefa() {
     $('#logTitulo').textContent = t.titulo ? (t.rodando ? 'Rodando: ' : t.ok ? 'Concluído: ' : 'Erro: ') + t.titulo : 'Nenhuma tarefa rodando';
     $('#logIcone').innerHTML = t.rodando ? '<span class="gira"></span>' : t.ok === false ? '<span style="color:var(--err)">✗</span>' : t.ok ? '<span style="color:var(--ok)">✓</span>' : '•';
     $('#logTempo').textContent = t.titulo ? `${Math.floor(t.segundos / 60)}min ${t.segundos % 60}s` : '';
+    mostrarProgresso(t);
     const terminou = ultimaTarefa.rodando && !t.rodando;
     const mudou = t.rodando !== ultimaTarefa.rodando || t.id !== ultimaTarefa.id;
     ultimaTarefa = t;
@@ -394,6 +419,25 @@ async function lerTarefa() {
     else if (mudou && !t.rodando) irPara(abaAtual, videoAberto);
     else if (mudou) document.querySelectorAll('main button.btn').forEach(b => { if (!/Abrir pasta|Salvar|Adicionar|Usar|Aprovar|Reprovar|✕/.test(b.textContent)) b.disabled = true; });
   } catch (e) {}
+}
+function fmt(seg) { seg = Math.max(0, Math.round(seg)); return seg >= 60 ? `${Math.floor(seg / 60)} min ${String(seg % 60).padStart(2, '0')} s` : `${seg} s`; }
+let progFechaEm = 0;
+function mostrarProgresso(t) {
+  const box = $('#prog'), pct = Math.round((t.progresso || 0) * 100);
+  const recente = !t.rodando && t.titulo && t.id === ultimaTarefa.id && Date.now() < progFechaEm;
+  if (t.rodando) progFechaEm = Date.now() + 12000;
+  box.classList.toggle('on', !!(t.rodando || recente));
+  box.classList.toggle('fim', !t.rodando && t.ok === true);
+  box.classList.toggle('erro', !t.rodando && t.ok === false);
+  $('#pPct').textContent = pct + '%';
+  $('#pBarra').style.width = pct + '%';
+  $('#logFio').style.width = (t.rodando ? pct : 0) + '%';
+  $('#pTit').textContent = t.rodando ? t.titulo : (t.ok ? '✓ ' + t.titulo + ' — pronto!' : '✗ ' + t.titulo + ' — deu erro (veja o log)');
+  $('#pDet').textContent = t.rodando ? [t.etapas > 1 ? `etapa ${t.etapaNum} de ${t.etapas}: ${t.etapa}` : '', t.detalhe].filter(Boolean).join(' — ') : '';
+  let tempo = 'passou ' + fmt(t.segundos);
+  if (t.rodando && t.progresso > 0.04 && t.segundos > 8) tempo += ' · faltam ~' + fmt(t.segundos / t.progresso * (1 - t.progresso));
+  $('#pTempo').textContent = tempo;
+  $('#pEtapas').innerHTML = t.etapas > 1 ? Array.from({length: t.etapas}, (_, i) => `<span class="${i + 1 < t.etapaNum || (!t.rodando && t.ok) ? 'feita' : i + 1 === t.etapaNum && t.rodando ? 'atual' : ''}">${i + 1 < t.etapaNum || (!t.rodando && t.ok) ? '✓' : i + 1}. ${esc((t.nomesEtapas || [])[i] || '')}</span>`).join('') : '';
 }
 setInterval(lerTarefa, 1500);
 

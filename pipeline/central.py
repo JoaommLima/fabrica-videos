@@ -50,6 +50,45 @@ class Tarefa:
         self.inicio = 0.0
         self.fim = 0.0
         self.id = 0
+        # progresso
+        self.pesos: list[float] = []
+        self.nomes: list[str] = []
+        self.passo = 0
+        self.frac = 0.0
+        self.rotulo = ""
+        self.faixa = (0.0, 1.0)
+
+    def _geral(self) -> float:
+        total = sum(self.pesos) or 1
+        feito = sum(self.pesos[: self.passo]) + (self.pesos[self.passo] * self.frac if self.passo < len(self.pesos) else 0)
+        return max(0.0, min(1.0, feito / total))
+
+    def _ler_progresso(self, linha: str) -> bool:
+        """Entende as linhas de progresso. Devolve True se a linha é só marcador (não vai pro log)."""
+        m = re.match(r"@@progresso\s+([\d.]+)\s*(.*)", linha)
+        if m:
+            self.frac = max(self.frac, min(1.0, float(m.group(1))))
+            self.rotulo = m.group(2).strip() or self.rotulo
+            return True
+        m = re.match(r"@@faixa\s+([\d.]+)\s+([\d.]+)\s*(.*)", linha)
+        if m:
+            self.faixa = (float(m.group(1)), float(m.group(2)))
+            self.frac = max(self.frac, self.faixa[0])
+            self.rotulo = m.group(3).strip() or self.rotulo
+            return True
+        a, b = self.faixa
+        m = re.search(r"Rendered (?:frames\s+)?(\d+)\s*/\s*(\d+)", linha)
+        if m and int(m.group(2)) > 1:
+            x, y = int(m.group(1)), int(m.group(2))
+            self.frac = max(self.frac, a + (b - a) * 0.92 * x / y)
+            self.rotulo = re.sub(r"\s*\(.*", "", self.rotulo.split(" · ")[0]) + f" · quadro {x} de {y}"
+            return False
+        m = re.search(r"(?:Encoded|Stitched)(?: video)?\s+(\d+)\s*/\s*(\d+)", linha)
+        if m and int(m.group(2)) > 1:
+            x, y = int(m.group(1)), int(m.group(2))
+            self.frac = max(self.frac, a + (b - a) * (0.92 + 0.08 * x / y))
+            self.rotulo = self.rotulo.split(" · ")[0] + " · finalizando o arquivo"
+        return False
 
     def estado(self) -> dict:
         with self.trava:
@@ -60,6 +99,12 @@ class Tarefa:
                 "ok": self.ok,
                 "log": self.linhas[-400:],
                 "segundos": int((self.fim or time.time()) - self.inicio) if self.inicio else 0,
+                "progresso": round(self._geral() if self.rodando else (1.0 if self.ok else self._geral()), 4),
+                "etapa": self.nomes[self.passo] if self.passo < len(self.nomes) else "",
+                "etapaNum": min(self.passo + 1, len(self.nomes)),
+                "etapas": len(self.nomes),
+                "nomesEtapas": self.nomes,
+                "detalhe": self.rotulo,
             }
 
     def _add(self, txt: str):
@@ -68,20 +113,26 @@ class Tarefa:
             if len(self.linhas) > 3000:
                 self.linhas = self.linhas[-2000:]
 
-    def iniciar(self, titulo: str, passos: list[tuple[str, list[str]]]) -> bool:
+    def iniciar(self, titulo: str, passos: list[tuple]) -> bool:
         with self.trava:
             if self.rodando:
                 return False
             self.rodando, self.ok, self.titulo = True, None, titulo
             self.linhas, self.inicio, self.fim = [], time.time(), 0.0
             self.id += 1
+            self.pesos = [float(p[2]) if len(p) > 2 else 1.0 for p in passos]
+            self.nomes = [p[0] for p in passos]
+            self.passo, self.frac, self.rotulo, self.faixa = 0, 0.0, "", (0.0, 1.0)
+            passos = [(p[0], p[1]) for p in passos]
         threading.Thread(target=self._rodar, args=(passos,), daemon=True).start()
         return True
 
     def _rodar(self, passos):
-        env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1", "FORCE_COLOR": "0"}
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1", "FORCE_COLOR": "0", "FABRICA_CENTRAL": "1"}
         ok = True
-        for nome, cmd in passos:
+        for i, (nome, cmd) in enumerate(passos):
+            with self.trava:
+                self.passo, self.frac, self.rotulo, self.faixa = i, 0.0, "", (0.0, 1.0)
             self._add(f"══ {nome} ══")
             try:
                 p = subprocess.Popen(cmd, cwd=RAIZ, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env, bufsize=0)
@@ -92,7 +143,9 @@ class Tarefa:
                         break
                     if ch in (b"\n", b"\r"):
                         linha = ANSI.sub("", buf.decode("utf-8", "replace")).rstrip()
-                        if linha:
+                        with self.trava:
+                            so_marcador = self._ler_progresso(linha.strip()) if linha else False
+                        if linha and not so_marcador:
                             if ch == b"\r":  # barra de progresso: substitui a última linha
                                 with self.trava:
                                     if self.linhas and self.linhas[-1].startswith("⟳"):
@@ -106,6 +159,8 @@ class Tarefa:
                         buf += ch
                 if buf.strip():
                     self._add(ANSI.sub("", buf.decode("utf-8", "replace")))
+                with self.trava:
+                    self.frac = 1.0
                 if p.wait() != 0:
                     ok = False
                     self._add(f"✗ parou em: {nome} (código {p.returncode})")
@@ -134,10 +189,10 @@ def passos_para(acao: str, slug: str | None, dados: dict) -> tuple[str, list] | 
     v = f"videos/{slug}" if slug else ""
     if acao == "produzir":
         return "Produzir vídeo completo", [
-            ("1/4 Narração com a sua voz", voz(v)),
-            ("2/4 Vídeo longo + thumbnails + kit", fab("tudo", v)),
-            ("3/4 Short: cenas", fab("renderizar", v, "--short")),
-            ("4/4 Short: áudio", fab("mixar", v, "--short")),
+            ("Narração com a sua voz", voz(v), 30),
+            ("Vídeo longo + thumbnails + kit", fab("tudo", v), 42),
+            ("Short: cenas", fab("renderizar", v, "--short"), 24),
+            ("Short: áudio", fab("mixar", v, "--short"), 4),
         ]
     if acao == "narrar":
         return "Gerar narração", [("Narração", voz(v))]

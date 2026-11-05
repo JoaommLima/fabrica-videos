@@ -18,10 +18,17 @@ import argparse
 import difflib
 import gc
 import json
+import os
 import re
 import sys
 import unicodedata
 from pathlib import Path
+
+
+def _marca(txt: str) -> None:
+    """Linha de progresso para a barra da Central (só aparece quando a Central roda a tarefa)."""
+    if os.environ.get("FABRICA_CENTRAL") == "1":
+        print(txt, flush=True)
 
 RAIZ = Path(__file__).resolve().parent.parent
 LIMIAR = 0.86  # semelhança mínima entre o que era pra falar e o que o Whisper ouviu
@@ -226,8 +233,13 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
         return
 
     # 1) gerar as falas que faltam (modelo de voz na GPU)
+    def prog(f: float, txt: str):
+        _marca(f"@@progresso {f:.3f} {txt}")
+
+    prog(0.02, "Carregando o modelo de voz" if gerar else "Carregando o Whisper")
     voz = Voz(amostra, cfg) if gerar else None
-    for b in gerar:
+    for k, b in enumerate(gerar):
+        prog(0.05 + 0.65 * k / len(gerar), f"Narrando {b['id']} ({k + 1} de {len(gerar)})")
         ajustar(voz, ajustes_do_bloco(b, cfg), cfg)
         voz.falar(b["_fala"], adir / f"{b['id']}.wav", semente=1)
         (adir / f"{b['id']}.json").unlink(missing_ok=True)
@@ -240,7 +252,9 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
             voz.liberar()
         ouvido = Ouvido(cfg.get("whisper", "large-v3"))
         reprovados = []
-        for b in pendentes:
+        base_f = 0.72 if rodada == 1 else 0.93
+        for k, b in enumerate(pendentes):
+            prog(base_f + (0.26 if rodada == 1 else 0.05) * k / len(pendentes), f"Conferindo pronúncia {b['id']} ({k + 1} de {len(pendentes)})")
             wav = adir / f"{b['id']}.wav"
             ouvido_txt, palavras = ouvido.ouvir(wav, b["_fala"])
             s = max(semelhanca(b["_fala"], ouvido_txt), semelhanca(b["narracao"], ouvido_txt))
@@ -260,6 +274,7 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
         if not reprovados or rodada == TENTATIVAS:
             break
         print(f"▶ refazendo {len(reprovados)} bloco(s) (tentativa {rodada + 1}/{TENTATIVAS})…")
+        prog(0.92, f"Refazendo {len(reprovados)} bloco(s) — tentativa {rodada + 1}")
         voz = Voz(amostra, cfg)
         for b in reprovados:
             ajustar(voz, ajustes_do_bloco(b, cfg), cfg)
@@ -291,7 +306,10 @@ def teste(frase: str):
     destino = RAIZ / "canal" / "voz" / "teste.wav"
     fala = para_fala(frase, dic)
     print(f"falando: {fala}")
-    Voz(RAIZ / cfg["amostra"], cfg).falar(fala, destino, semente=1)
+    _marca("@@progresso 0.1 Carregando o modelo de voz")
+    v = Voz(RAIZ / cfg["amostra"], cfg)
+    _marca("@@progresso 0.6 Gerando a fala")
+    v.falar(fala, destino, semente=1)
     print(f"✔ ouça: {destino}")
 
 
@@ -309,8 +327,10 @@ def comparar(frase: str):
     dic = carregar(RAIZ / "canal" / "pronuncia.json")
     fala = para_fala(frase, dic)
     print(f"falando: {fala}")
+    _marca("@@progresso 0.05 Carregando o modelo de voz")
     voz = Voz(RAIZ / cfg["amostra"], cfg)
-    for nome, perfil in PERFIS.items():
+    for k, (nome, perfil) in enumerate(PERFIS.items()):
+        _marca(f"@@progresso {0.15 + 0.85 * k / len(PERFIS):.3f} Gerando perfil {nome} ({k + 1} de {len(PERFIS)})")
         ajustar(voz, perfil, {})
         destino = RAIZ / "canal" / "voz" / f"comparar-{nome}.wav"
         voz.falar(fala, destino, semente=1)

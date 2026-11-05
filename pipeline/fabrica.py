@@ -27,6 +27,12 @@ import unicodedata
 import wave
 from pathlib import Path
 
+
+def _marca(txt: str) -> None:
+    """Linha de progresso para a barra da Central (só aparece quando a Central roda a tarefa)."""
+    if os.environ.get("FABRICA_CENTRAL") == "1":
+        print(txt, flush=True)
+
 RAIZ = Path(__file__).resolve().parent.parent
 ENGINE = RAIZ / "engine"
 FOLGA_BLOCO = 0.45  # respiro (s) entre um bloco e outro
@@ -93,6 +99,15 @@ def palavras_bloco(reais: list, estimadas: list, ini: float, dur: float) -> list
     """Palavras (tempo absoluto) que caem dentro do bloco que começa em `ini`."""
     fonte = reais if reais else estimadas
     return [w for w in fonte if ini - 0.01 <= w["inicio"] < ini + dur]
+
+
+def progresso(f: float, texto: str = "") -> None:
+    """Marcador lido pela Central para a barra de progresso (não aparece no log)."""
+    _marca(f"@@progresso {f:.3f} {texto}")
+
+
+def faixa(a: float, b: float, texto: str = "") -> None:
+    _marca(f"@@faixa {a:.3f} {b:.3f} {texto}")
 
 
 def preparar(pasta: Path) -> Path:
@@ -237,6 +252,7 @@ def renderizar(pasta: Path, short: bool = False, chrome: str | None = None) -> P
     else:
         garantir_navegador()
     print("▶ renderizando cenas…")
+    faixa(0.04, 0.78 if not short else 0.97, "Renderizando as cenas")
     subprocess.run(cmd, cwd=ENGINE, check=True)
     print(f"✔ {saida.relative_to(RAIZ)}")
     return saida
@@ -381,6 +397,7 @@ def thumbs(pasta: Path, chrome: str | None = None) -> list[Path]:
         garantir_navegador()
     saidas = []
     for v in (1, 2, 3):
+        _marca(f"@@progresso {0.86 + 0.035 * (v - 1):.3f} Gerando thumbnail {v} de 3")
         props = pasta / "saida" / f"thumb-{v}.props.json"
         salvar_json(props, {**th, "tema": tema, "variante": v})
         destino = pasta / "saida" / f"thumb-{v}.png"
@@ -485,11 +502,15 @@ def main():
     elif a.etapa == "kit":
         kit(pasta)
     else:
+        progresso(0.01, "Preparando")
         preparar(pasta)
         renderizar(pasta, a.short, a.chrome)
+        progresso(0.80, "Mixando áudio (voz + música + efeitos)")
         mixar(pasta, a.short)
         if not a.short:
+            faixa(0.86, 0.97, "Gerando thumbnails")
             thumbs(pasta, a.chrome)
+            progresso(0.98, "Montando o kit de publicação")
             kit(pasta)
 
 

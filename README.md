@@ -15,10 +15,12 @@ roteiro (Claude Code) → voz clonada (RTX 4060) → checagem de pronúncia (Whi
 |---|---|
 | Motor de cenas (9 tipos, longo 16:9 e short 9:16) | ✅ pronto |
 | Preparar / renderizar / mixar (CLI) | ✅ pronto |
-| Voz clonada local (F5-TTS / Chatterbox / VoxCPM — testar qual soa melhor em PT-BR) | ⏳ próxima |
-| Checagem de pronúncia + legendas reais (faster-whisper) | ⏳ |
-| Shorts automáticos (cortes) e 3 thumbnails | ⏳ |
-| Painel de aprovação no navegador | ⏳ |
+| Voz clonada local (Chatterbox Multilingual, RTX 4060) | ✅ pronto |
+| Checagem de pronúncia + legendas reais (faster-whisper) | ✅ pronto |
+| 4 estilos visuais + animação no ritmo da fala | ✅ pronto |
+| 3 thumbnails + kit (título, descrição com capítulos, fontes, tags) | ✅ pronto |
+| Shorts com cortes escolhidos (hoje: vídeo inteiro em 9:16) | ⏳ |
+| Painel de aprovação no navegador (`PAINEL.bat`) | ✅ pronto |
 | Upload pela YouTube Data API (privado + agendado) | ⏳ |
 | Fila de temas | ⏳ |
 

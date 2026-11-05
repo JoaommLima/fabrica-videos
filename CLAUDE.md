@@ -19,8 +19,11 @@ O JM conversa com você em português; você opera a fábrica. **Nada é publica
    - varie as cenas (diagrama, terminal, lista, comparação, número, linha do tempo, frase);
    - abra com gancho em até 10 s (cena `abertura`), feche com `encerramento`;
    - comandos em cena `terminal` devem ser reais e testáveis (RouterOS, Linux, Proxmox…).
+   - inclua o bloco `publicacao` (veja o vídeo demo): 3 `titulos` (até 100 caracteres), `resumo`,
+     `tags`, `comentarioFixado` e `thumbnail` (`texto` de 2 a 5 palavras, `destaque`, `selo`, `icones`).
 4. Mostre o roteiro ao JM e espere ele aprovar ou ajustar.
-5. Rode `python pipeline/fabrica.py tudo videos/<slug>` (e `--short` para a versão vertical).
+5. Rode `powershell -ExecutionPolicy Bypass -File .\produzir.ps1 videos\<slug>` (voz + longo + short + thumbnails + kit).
+6. Peça ao JM para revisar no painel (`PAINEL.bat`) e clicar em Aprovar.
 
 ## Regras
 - Português do Brasil, linguagem de conversa, sem jargão sem explicar.

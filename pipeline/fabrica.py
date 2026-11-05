@@ -4,6 +4,8 @@ Uso (na raiz do projeto):
   python pipeline/fabrica.py preparar  videos/<slug>   # junta roteiro + tema + tempos -> props.json
   python pipeline/fabrica.py renderizar videos/<slug> [--short]
   python pipeline/fabrica.py mixar     videos/<slug>   # narração + trilha, volume padrão YouTube
+  python pipeline/fabrica.py thumbs    videos/<slug>   # 3 opções de thumbnail
+  python pipeline/fabrica.py kit       videos/<slug>   # título, descrição com capítulos, tags
   python pipeline/fabrica.py tudo      videos/<slug>
 
 Estrutura de cada vídeo:
@@ -21,6 +23,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 import wave
 from pathlib import Path
 
@@ -174,9 +177,104 @@ def mixar(pasta: Path, short: bool = False) -> Path:
     return final
 
 
+# ───────────────────────── thumbnails ─────────────────────────
+def thumbs(pasta: Path, chrome: str | None = None) -> list[Path]:
+    cfg = carregar_json(RAIZ / "canal" / "config.json")
+    rot = carregar_json(pasta / "roteiro.json")
+    th = rot.get("publicacao", {}).get("thumbnail")
+    if not th:
+        abertura = next((b["cena"] for b in rot["blocos"] if b["cena"]["tipo"] == "abertura"), {})
+        th = {"texto": abertura.get("titulo", rot["titulo"]), "selo": abertura.get("selo")}
+    tema = montar_tema(cfg["tema"], rot.get("estilo"))
+    npx = "npx.cmd" if os.name == "nt" else "npx"
+    chrome = chrome or os.environ.get("REMOTION_CHROME")
+    saidas = []
+    for v in (1, 2, 3):
+        props = pasta / "saida" / f"thumb-{v}.props.json"
+        salvar_json(props, {**th, "tema": tema, "variante": v})
+        destino = pasta / "saida" / f"thumb-{v}.png"
+        cmd = [npx, "remotion", "still", "src/index.ts", "Thumb", str(destino), f"--props={props}", "--log=error"]
+        if chrome:
+            cmd.append(f"--browser-executable={chrome}")
+        subprocess.run(cmd, cwd=ENGINE, check=True)
+        saidas.append(destino)
+    print(f"✔ 3 thumbnails em {(pasta / 'saida').relative_to(RAIZ)}")
+    return saidas
+
+
+# ───────────────────────── kit de publicação ─────────────────────────
+def _tempo(seg: float) -> str:
+    s = int(seg)
+    return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}" if s >= 3600 else f"{s // 60}:{s % 60:02d}"
+
+
+def kit(pasta: Path) -> Path:
+    """Título, descrição com capítulos e fontes, tags e comentário fixado."""
+    cfg = carregar_json(RAIZ / "canal" / "config.json")
+    rot = carregar_json(pasta / "roteiro.json")
+    props_p = pasta / "saida" / "props.json"
+    if not props_p.exists():
+        preparar(pasta)
+    blocos = carregar_json(props_p)["blocos"]
+    pub = rot.get("publicacao", {})
+
+    # capítulos: cada cena com título vira capítulo; o YouTube exige 1º em 0:00, mínimo 3, cada um com 10 s+
+    caps: list[list] = []
+    for b in blocos:
+        c = b["cena"]
+        nome = "Introdução" if c["tipo"] == "abertura" else c.get("titulo")
+        if not nome:
+            continue
+        if c["tipo"] == "encerramento":
+            nome = "Encerramento"
+        if caps and b["inicioAudio"] - caps[-1][0] < 10:
+            continue  # muito perto do anterior: junta
+        caps.append([b["inicioAudio"] if caps else 0.0, nome])
+    caps_txt = "\n".join(f"{_tempo(t)} {n}" for t, n in caps) if len(caps) >= 3 else ""
+
+    fontes = []
+    fp = pasta / "fontes.md"
+    if fp.exists():
+        fontes = re.findall(r"https?://\S+", fp.read_text(encoding="utf-8"))
+
+    tags = pub.get("tags", [])
+    partes = [pub.get("resumo", rot["titulo"])]
+    if caps_txt:
+        partes.append("⏱ Capítulos\n" + caps_txt)
+    if fontes:
+        partes.append("📚 Fontes\n" + "\n".join(fontes))
+    if cfg["publicacao"].get("marcarUsoDeIA"):
+        partes.append("ℹ️ A narração deste vídeo usa uma versão sintética da voz do próprio autor. Roteiro e revisão: " + cfg["nomeCanal"] + ".")
+    sem_acento = lambda x: "".join(c for c in unicodedata.normalize("NFKD", x) if not unicodedata.combining(c))
+    partes.append(" ".join("#" + re.sub(r"\W", "", sem_acento(t).title()) for t in tags[:3]))
+    descricao = "\n\n".join(partes)
+
+    titulos = pub.get("titulos", [rot["titulo"]])
+    dados = {
+        "titulo": titulos[0],
+        "titulosAlternativos": titulos[1:],
+        "descricao": descricao,
+        "tags": tags,
+        "comentarioFixado": pub.get("comentarioFixado", ""),
+        "categoria": cfg["publicacao"]["categoriaYoutube"],
+        "avisos": [],
+    }
+    if len(titulos[0]) > 100:
+        dados["avisos"].append("Título passa de 100 caracteres (limite do YouTube).")
+    if len(descricao) > 5000:
+        dados["avisos"].append("Descrição passa de 5000 caracteres.")
+    if len(", ".join(tags)) > 500:
+        dados["avisos"].append("Tags passam de 500 caracteres.")
+    destino = pasta / "saida" / "kit.json"
+    salvar_json(destino, dados)
+    (pasta / "saida" / "descricao.txt").write_text(descricao, encoding="utf-8")
+    print(f"✔ kit de publicação: {destino.relative_to(RAIZ)}")
+    return destino
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fábrica de vídeos")
-    ap.add_argument("etapa", choices=["preparar", "renderizar", "mixar", "tudo"])
+    ap.add_argument("etapa", choices=["preparar", "renderizar", "mixar", "thumbs", "kit", "tudo"])
     ap.add_argument("pasta", help="videos/<slug>")
     ap.add_argument("--short", action="store_true", help="formato vertical 9:16")
     ap.add_argument("--chrome", help="caminho de um Chrome/Chromium já instalado (opcional)")
@@ -191,10 +289,17 @@ def main():
         renderizar(pasta, a.short, a.chrome)
     elif a.etapa == "mixar":
         mixar(pasta, a.short)
+    elif a.etapa == "thumbs":
+        thumbs(pasta, a.chrome)
+    elif a.etapa == "kit":
+        kit(pasta)
     else:
         preparar(pasta)
         renderizar(pasta, a.short, a.chrome)
         mixar(pasta, a.short)
+        if not a.short:
+            thumbs(pasta, a.chrome)
+            kit(pasta)
 
 
 if __name__ == "__main__":

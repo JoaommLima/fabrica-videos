@@ -12,8 +12,10 @@ import '@fontsource/space-grotesk/700.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/700.css';
 import React from 'react';
-import { CalculateMetadataFunction, Composition } from 'remotion';
+import { CalculateMetadataFunction, Composition, Still } from 'remotion';
 import { Video } from './Video';
+import { Thumb, ThumbProps } from './Thumb';
+import estilos from './estilos.json';
 import type { Roteiro } from './types';
 import exemplo from '../exemplo-roteiro.json';
 
@@ -47,6 +49,21 @@ export const RemotionRoot: React.FC = () => (
       durationInFrames={300}
       defaultProps={exemplo as unknown as Roteiro}
       calculateMetadata={metadata}
+    />
+    {/* Thumbnail do YouTube */}
+    <Still
+      id="Thumb"
+      component={Thumb}
+      width={1280}
+      height={720}
+      defaultProps={{
+        tema: { ...(estilos as Record<string, object>).bancada, nomeCanal: 'JM Lab' } as ThumbProps['tema'],
+        variante: 1,
+        texto: 'Sua rede está exposta',
+        destaque: 'exposta',
+        selo: 'VLAN',
+        icones: ['switch', 'wifi', 'pc'],
+      } as ThumbProps}
     />
   </>
 );

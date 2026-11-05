@@ -86,17 +86,17 @@ class Voz:
         import soundfile as sf
 
         self.torch.manual_seed(semente)
-        if not getattr(self, "_preparado", False):
+        if getattr(self, "_exag_preparada", None) != self.exag:  # a expressividade entra no "condicionamento" da amostra
             self.m.prepare_conditionals(self.amostra, exaggeration=self.exag)
-            self._preparado = True
-        pausa = np.zeros(int(0.22 * self.m.sr), dtype=np.float32)
+            self._exag_preparada = self.exag
         pedacos = []
-        for frase in dividir_frases(texto):
+        frases = dividir_frases(texto)
+        for k, frase in enumerate(frases):
             wav = self.m.generate(frase, language_id="pt", exaggeration=self.exag, cfg_weight=self.cfg_w, temperature=self.temp)
             wav = aparar_silencio(wav, self.m.sr)
-            if pedacos:
-                pedacos.append(pausa)
             pedacos.append(wav.squeeze(0).detach().cpu().numpy().astype(np.float32))
+            if k < len(frases) - 1:
+                pedacos.append(np.zeros(int(pausa_depois(frase, k) * self.m.sr), dtype=np.float32))
         audio = np.concatenate(pedacos) if pedacos else pausa
         pico = float(np.max(np.abs(audio))) or 1.0
         audio = audio / max(pico, 1.0) * 0.98  # evita estourar ao converter para 16 bits
@@ -108,6 +108,30 @@ class Voz:
         gc.collect()
         if self.dev == "cuda":
             self.torch.cuda.empty_cache()
+
+
+def pausa_depois(frase: str, k: int) -> float:
+    """Pausa natural conforme a pontuação, com uma pequena variação para não soar mecânico."""
+    fim = frase.rstrip()[-1:] if frase.strip() else "."
+    base = {"?": 0.42, "!": 0.34, ":": 0.28, "…": 0.5}.get(fim, 0.34)
+    return base + (0.06, -0.03, 0.02, -0.05)[k % 4]
+
+
+def ajustar(voz: "Voz", ajustes: dict | None, padrao: dict) -> None:
+    """Aplica ajustes de voz do bloco (ex.: abertura mais animada) ou volta ao padrão do canal."""
+    a = {**padrao, **(ajustes or {})}
+    voz.exag = a.get("expressividade", 0.65)
+    voz.cfg_w = a.get("cfgPeso", 0.35)
+    voz.temp = a.get("temperatura", 0.85)
+
+
+def ajustes_do_bloco(b: dict, cfg: dict) -> dict | None:
+    """Ajuste do roteiro (campo "voz" do bloco); se não houver, abertura e encerramento saem um pouco mais animados."""
+    if b.get("voz"):
+        return b["voz"]
+    if b["cena"]["tipo"] in ("abertura", "encerramento"):
+        return {"expressividade": min(1.0, cfg.get("expressividade", 0.65) + 0.1)}
+    return None
 
 
 def dividir_frases(texto: str) -> list[str]:
@@ -204,6 +228,7 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
     # 1) gerar as falas que faltam (modelo de voz na GPU)
     voz = Voz(amostra, cfg) if gerar else None
     for b in gerar:
+        ajustar(voz, ajustes_do_bloco(b, cfg), cfg)
         voz.falar(b["_fala"], adir / f"{b['id']}.wav", semente=1)
         (adir / f"{b['id']}.json").unlink(missing_ok=True)
         print(f"  ♪ {b['id']}")
@@ -237,6 +262,7 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
         print(f"▶ refazendo {len(reprovados)} bloco(s) (tentativa {rodada + 1}/{TENTATIVAS})…")
         voz = Voz(amostra, cfg)
         for b in reprovados:
+            ajustar(voz, ajustes_do_bloco(b, cfg), cfg)
             voz.falar(b["_fala"], adir / f"{b['id']}.wav", semente=rodada * 1000 + 7)
         voz.liberar()
         pendentes = reprovados
@@ -269,15 +295,41 @@ def teste(frase: str):
     print(f"✔ ouça: {destino}")
 
 
+PERFIS = {
+    "A-contido": {"expressividade": 0.5, "cfgPeso": 0.5, "temperatura": 0.8},
+    "B-natural": {"expressividade": 0.65, "cfgPeso": 0.35, "temperatura": 0.85},
+    "C-expressivo": {"expressividade": 0.8, "cfgPeso": 0.3, "temperatura": 0.9},
+    "D-animado": {"expressividade": 0.95, "cfgPeso": 0.25, "temperatura": 0.95},
+}
+
+
+def comparar(frase: str):
+    """Gera a mesma frase em 4 perfis de voz para escolher de ouvido."""
+    cfg = carregar(RAIZ / "canal" / "config.json")["voz"]
+    dic = carregar(RAIZ / "canal" / "pronuncia.json")
+    fala = para_fala(frase, dic)
+    print(f"falando: {fala}")
+    voz = Voz(RAIZ / cfg["amostra"], cfg)
+    for nome, perfil in PERFIS.items():
+        ajustar(voz, perfil, {})
+        destino = RAIZ / "canal" / "voz" / f"comparar-{nome}.wav"
+        voz.falar(fala, destino, semente=1)
+        print(f"  ♪ {destino.name}  {perfil}")
+    print("✔ ouça os 4 arquivos em canal\\voz\\ e copie os números do preferido para \"voz\" em canal\\config.json")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("pasta", help="videos/<slug>  ou  teste")
+    ap.add_argument("pasta", help="videos/<slug>  |  teste  |  comparar")
     ap.add_argument("frase", nargs="?", help="(com 'teste') frase para testar a voz")
     ap.add_argument("--refazer", nargs="*", default=None, help="ids dos blocos para refazer")
     ap.add_argument("--tudo", action="store_true")
     a = ap.parse_args()
     if a.pasta == "teste":
         teste(a.frase or "Olá! Esse é um teste da minha voz clonada para o canal.")
+        return
+    if a.pasta == "comparar":
+        comparar(a.frase or "Sabe aquela câmera barata que você colocou na sua rede? Ela está no mesmo lugar que o seu computador do trabalho!")
         return
     pasta = (RAIZ / a.pasta).resolve()
     narrar(pasta, set(a.refazer) if a.refazer else None, a.tudo)

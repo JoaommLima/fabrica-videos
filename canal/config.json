@@ -11,9 +11,9 @@
   "voz": {
     "motor": "chatterbox-multilingual",
     "amostra": "canal/voz/amostra.wav",
-    "expressividade": 0.5,
-    "cfgPeso": 0.5,
-    "temperatura": 0.8,
+    "expressividade": 0.65,
+    "cfgPeso": 0.35,
+    "temperatura": 0.85,
     "whisper": "large-v3"
   },
   "producao": {
@@ -35,5 +35,11 @@
     "fusoHorario": "America/Sao_Paulo",
     "marcarUsoDeIA": true,
     "categoriaYoutube": 28
+  },
+  "audio": {
+    "_comentario": "trilha: 'auto' (sorteia de canal/trilhas/, senão usa a padrão), 'nenhuma', ou o nome de um arquivo em canal/trilhas/",
+    "volumeMusica": 0.16,
+    "volumeEfeitos": 0.6,
+    "trilha": "auto"
   }
 }

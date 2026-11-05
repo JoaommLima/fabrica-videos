@@ -68,4 +68,5 @@ export type Roteiro = {
   blocos: Bloco[];
   legendas?: Palavra[];
   mostrarLegenda?: boolean;
+  volumeEfeitos?: number; // 0 desliga os efeitos sonoros
 };

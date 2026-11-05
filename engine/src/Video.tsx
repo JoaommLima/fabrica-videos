@@ -3,6 +3,7 @@ import { AbsoluteFill, Series, useCurrentFrame, useVideoConfig } from 'remotion'
 import type { Bloco, Roteiro } from './types';
 import { BlocoCtx, Filtros, Fundo, Grao, TemaCtx, Transicao, useLayout, useTema } from './components/base';
 import * as C from './scenes/Cenas';
+import { Som, VolumeSomCtx } from './components/Som';
 
 const CenaDoBloco: React.FC<{ bloco: Bloco; duracaoFrames: number }> = ({ bloco, duracaoFrames }) => {
   const c = bloco.cena;
@@ -112,14 +113,16 @@ export const Video: React.FC<Roteiro> = (roteiro) => {
   const { fps } = useVideoConfig();
   return (
     <TemaCtx.Provider value={roteiro.tema}>
+     <VolumeSomCtx.Provider value={roteiro.volumeEfeitos ?? 0.6}>
       <AbsoluteFill style={{ fontFamily: roteiro.tema.fonteTexto }}>
         <Filtros />
         <Fundo />
         <Series>
-          {roteiro.blocos.map((b) => {
+          {roteiro.blocos.map((b, i) => {
             const d = Math.max(1, Math.round(b.duracao * fps));
             return (
               <Series.Sequence key={b.id} durationInFrames={d} name={`${b.id} · ${b.cena.tipo}`}>
+                {i > 0 && <Som tipo="transicao" em={0} volume={0.55} />}
                 <BlocoCtx.Provider value={{ palavras: b.palavras ?? [], duracaoFrames: d }}>
                   <Transicao duracaoFrames={d}>
                     <CenaDoBloco bloco={b} duracaoFrames={d} />
@@ -134,6 +137,7 @@ export const Video: React.FC<Roteiro> = (roteiro) => {
         <Progresso />
         <Grao />
       </AbsoluteFill>
+     </VolumeSomCtx.Provider>
     </TemaCtx.Provider>
   );
 };

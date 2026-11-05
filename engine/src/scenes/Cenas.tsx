@@ -3,6 +3,7 @@ import { interpolate, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
 import type { Cena } from '../types';
 import { BlocoCtx, Cartao, Palco, Sublinhado, Surge, Titulo, useEntrada, useGatilhos, useLayout, useTema } from '../components/base';
 import { Icone } from '../components/Icones';
+import { Som } from '../components/Som';
 
 type P<T extends Cena['tipo']> = { cena: Extract<Cena, { tipo: T }>; duracaoFrames: number };
 
@@ -38,6 +39,8 @@ export const Abertura: React.FC<P<'abertura'>> = ({ cena }) => {
           </div>
         </Surge>
       )}
+      <Som tipo="whoosh" em={2} volume={0.7} />
+      {cena.selo && <Som tipo="clique" em={0} volume={0.6} />}
       <Titulo tamanho={vertical ? 96 : 110} atraso={4} centro={tema.estilo !== 'revista'}>
         {cena.titulo}
       </Titulo>
@@ -62,6 +65,7 @@ export const Lista: React.FC<P<'lista'>> = ({ cena, duracaoFrames }) => {
       <div style={{ marginTop: 60 * u, display: 'flex', flexDirection: 'column', gap: 30 * u }}>
         {cena.itens.map((item, i) => (
           <Surge key={i} atraso={quando[i]} de="esquerda">
+            <Som tipo="pop" em={quando[i]} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 * u }}>
               <Marcador n={i + 1} />
               <div style={{ fontFamily: tema.fonteTexto, fontWeight: 600, fontSize: 46 * u, color: tema.corTexto }}>{item}</div>
@@ -187,6 +191,10 @@ export const Diagrama: React.FC<P<'diagrama'>> = ({ cena, duracaoFrames }) => {
           </>
         )}
       </svg>
+      {cena.nos.map((_, i) => (
+        <Som key={`s${i}`} tipo="pop" em={quando[i]} volume={0.85} />
+      ))}
+      {cena.pacote && cena.pacote.length > 1 && <Som tipo="whoosh" em={fimNos + 12} volume={0.5} />}
       {cena.nos.map((n, i) => {
         const p = pos(n.id);
         const e = useEntrada(quando[i]);
@@ -250,8 +258,20 @@ export const Terminal: React.FC<P<'terminal'>> = ({ cena, duracaoFrames }) => {
   const totalChars = cena.linhas.reduce((s, l) => s + (l.cmd?.length ?? 0) + 12, 0);
   const vel = Math.max(1.2, totalChars / Math.max(30, duracaoFrames * 0.7 - 20));
   let orcamento = Math.max(0, (frame - 20) * vel);
+  // sons de teclado: um clique a cada 2 caracteres, alternando 3 timbres; "enter" no fim de cada comando
+  const sons: React.ReactNode[] = [];
+  let acumulado = 0;
+  cena.linhas.forEach((l, li) => {
+    const n = l.cmd?.length ?? 0;
+    for (let j = 0; j < n; j += 2) {
+      sons.push(<Som key={`k${li}-${j}`} tipo={(['tecla1', 'tecla2', 'tecla3'] as const)[(j / 2 + li) % 3]} em={20 + (acumulado + j) / vel} volume={0.55} />);
+    }
+    if (n) sons.push(<Som key={`e${li}`} tipo="clique" em={20 + (acumulado + n) / vel + 2} volume={0.5} />);
+    acumulado += n + 12;
+  });
   return (
     <Palco>
+      {sons}
       {cena.titulo && (
         <>
           <Titulo>{cena.titulo}</Titulo>
@@ -316,6 +336,7 @@ export const Comparacao: React.FC<P<'comparacao'>> = ({ cena, duracaoFrames }) =
     const c = cena[lado];
     return (
       <Surge atraso={ini} de={lado === 'esquerda' ? 'esquerda' : 'direita'} style={{ flex: 1, minWidth: 0 }}>
+        <Som tipo="whoosh" em={ini} volume={0.55} />
         <Cartao topo={tema.estilo === 'caderno' ? undefined : cor} style={{ padding: 44 * u }}>
           <div style={{ fontFamily: tema.fonteTitulo, fontWeight: tema.pesoTitulo, fontSize: (tema.estilo === 'caderno' ? 62 : 48) * u, color: cor, marginBottom: 30 * u }}>{c.titulo}</div>
           {c.itens.map((it, i) => (
@@ -352,10 +373,14 @@ export const Numero: React.FC<P<'numero'>> = ({ cena, duracaoFrames }) => {
   // contador dispara quando a narração chega no número (procura palavras como "mil", "quatro")
   const ini = useMomento(String(cena.valor).length > 3 ? 'mil' : String(cena.valor), palavras.length ? 8 : 2);
   const t = interpolate(frame, [ini, ini + Math.min(45, duracaoFrames * 0.4)], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) });
+  const durConta = Math.min(45, duracaoFrames * 0.4);
+  const ticks = Array.from({ length: Math.floor(durConta / 4) }, (_, k) => <Som key={k} tipo="tick" em={ini + k * 4} volume={0.35 + 0.4 * (k / (durConta / 4))} />);
   const v = (cena.valor * t).toLocaleString('pt-BR', { minimumFractionDigits: cena.casas ?? 0, maximumFractionDigits: cena.casas ?? 0 });
   const cor = tema.estilo === 'caderno' ? tema.corDestaque2 : tema.corDestaque;
   return (
     <Palco centro>
+      {ticks}
+      <Som tipo="ding" em={ini + durConta} volume={0.7} />
       <Surge de="zoom">
         <div
           style={{
@@ -434,6 +459,7 @@ export const LinhaDoTempo: React.FC<P<'linha-do-tempo'>> = ({ cena, duracaoFrame
         />
         {cena.marcos.map((m, i) => (
           <Surge key={i} atraso={quando[i]} style={{ flex: 1, position: 'relative' }}>
+            <Som tipo="pop" em={quando[i]} />
             <div style={{ display: 'flex', flexDirection: vertical ? 'row' : 'column', alignItems: vertical ? 'center' : 'flex-start', gap: 20 * u, paddingLeft: vertical ? 0 : 10 * u }}>
               <div style={{ width: 50 * u, height: 50 * u, borderRadius: 99, background: tema.corFundo, border: `${6 * u}px solid ${tema.estilo === 'caderno' ? tema.corPerigo : tema.corDestaque}`, flexShrink: 0 }} />
               <div>
@@ -466,6 +492,8 @@ export const Encerramento: React.FC<P<'encerramento'>> = ({ cena }) => {
           <div style={{ fontFamily: tema.fonteTexto, fontSize: 40 * u, color: tema.corSuave, marginTop: 26 * u, maxWidth: 1300 * u }}>{cena.texto}</div>
         </Surge>
       )}
+      <Som tipo="pop" em={quando} />
+      <Som tipo="ding" em={quando + 4} volume={0.5} />
       <Surge atraso={quando} de="zoom">
         <div
           style={{

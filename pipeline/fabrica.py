@@ -131,6 +131,7 @@ def preparar(pasta: Path) -> Path:
         "tema": montar_tema(cfg["tema"], rot.get("estilo")),
         "blocos": rot["blocos"],
         "mostrarLegenda": rot.get("mostrarLegenda", True),
+        "volumeEfeitos": rot.get("volumeEfeitos", cfg.get("audio", {}).get("volumeEfeitos", 0.6)),
         "legendas": carregar_json(legendas_reais) if legendas_reais.exists() else (palavras_reais if tem_audio else palavras_estimadas),
     }
     destino = pasta / "saida" / "props.json"
@@ -229,7 +230,7 @@ def renderizar(pasta: Path, short: bool = False, chrome: str | None = None) -> P
         preparar(pasta)
     saida = pasta / "saida" / ("short-sem-audio.mp4" if short else "video-sem-audio.mp4")
     npx = "npx.cmd" if os.name == "nt" else "npx"
-    cmd = [npx, "remotion", "render", "src/index.ts", "Short" if short else "Longo", str(saida), f"--props={props}", "--muted", "--log=error"]
+    cmd = [npx, "remotion", "render", "src/index.ts", "Short" if short else "Longo", str(saida), f"--props={props}", "--log=error"]  # com áudio: os efeitos sonoros vêm do Remotion
     chrome = chrome or os.environ.get("REMOTION_CHROME")
     if chrome:
         cmd.append(f"--browser-executable={chrome}")
@@ -286,36 +287,82 @@ def montar_narracao(pasta: Path, blocos: list, destino: Path) -> bool:
     return algum
 
 
+def escolher_trilha(pasta: Path, cfg: dict, rot: dict) -> Path | None:
+    """Trilha do vídeo: a do roteiro, a do config, uma de canal/trilhas/ (fixa por vídeo) ou a padrão do canal."""
+    pedido = rot.get("trilha") or cfg.get("audio", {}).get("trilha", "auto")
+    if pedido == "nenhuma":
+        return None
+    minhas = RAIZ / "canal" / "trilhas"
+    if pedido != "auto":
+        p = minhas / pedido
+        if p.exists():
+            return p
+        print(f"⚠ trilha '{pedido}' não encontrada em canal/trilhas — usando automática")
+    opcoes = sorted(p for p in minhas.glob("*") if p.suffix.lower() in {".mp3", ".wav", ".m4a", ".ogg"}) if minhas.exists() else []
+    if opcoes:
+        return opcoes[sum(map(ord, pasta.name)) % len(opcoes)]  # mesma trilha sempre para o mesmo vídeo
+    padrao = RAIZ / "assets" / "trilhas" / "trilha-padrao.m4a"
+    return padrao if padrao.exists() else None
+
+
+def tem_audio(video: Path) -> bool:
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-i", str(video)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return "Audio:" in r.stderr
+
+
 def mixar(pasta: Path, short: bool = False) -> Path:
+    """Narração + música (abaixa sozinha quando a voz entra) + efeitos sonoros do vídeo → volume padrão YouTube."""
     cfg = carregar_json(RAIZ / "canal" / "config.json")
+    rot = carregar_json(pasta / "roteiro.json")
     props = carregar_json(pasta / "saida" / "props.json")
     video = pasta / "saida" / ("short-sem-audio.mp4" if short else "video-sem-audio.mp4")
     final = pasta / "saida" / ("short.mp4" if short else "video.mp4")
     lufs = cfg["producao"]["loudnessAlvoLUFS"]
+    vol_musica = rot.get("volumeMusica", cfg.get("audio", {}).get("volumeMusica", 0.16))
+    total = sum(b["duracao"] for b in props["blocos"])
 
     narracao = pasta / "saida" / "narracao.wav"
     if not montar_narracao(pasta, props["blocos"], narracao):
-        print("⚠ sem narração em audio/ — copiando o vídeo mudo como está.")
+        print("⚠ sem narração em audio/ — copiando o vídeo como está.")
         shutil.copy(video, final)
         return final
 
-    pasta_trilhas = RAIZ / "canal" / "trilhas"
-    trilha = next((p for p in sorted(pasta_trilhas.glob("*")) if p.suffix.lower() in {".mp3", ".wav", ".m4a"}), None) if pasta_trilhas.exists() else None
+    trilha = escolher_trilha(pasta, cfg, rot)
+    efeitos = tem_audio(video)
     args = ["-i", str(video), "-i", str(narracao)]
+    filtros = ["[1:a]aresample=48000,asplit=2[voz][chave]"]
+    entradas_mix = ["[voz]"]
     if trilha:
-        # trilha baixa que "abaixa" sozinha quando a voz entra (sidechain)
         args += ["-stream_loop", "-1", "-i", str(trilha)]
-        filtro = (
-            "[1:a]asplit=2[voz][chave];"
-            "[2:a]volume=0.18[tr];"
-            "[tr][chave]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=400[trd];"
-            f"[voz][trd]amix=inputs=2:duration=first:normalize=0,loudnorm=I={lufs}:TP=-1.5:LRA=11[a]"
-        )
+        fim = max(0.0, total - 3)
+        filtros.append(f"[2:a]aresample=48000,volume={vol_musica},afade=t=in:d=2,afade=t=out:st={fim:.2f}:d=3[tr]")
+        filtros.append("[tr][chave]sidechaincompress=threshold=0.02:ratio=8:attack=15:release=350[trd]")
+        entradas_mix.append("[trd]")
     else:
-        filtro = f"[1:a]loudnorm=I={lufs}:TP=-1.5:LRA=11[a]"
-    args += ["-filter_complex", filtro, "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", str(final)]
+        filtros.append("[chave]anullsink")
+    if efeitos:
+        filtros.append("[0:a]aresample=48000[fx]")
+        entradas_mix.append("[fx]")
+    mix = f"{''.join(entradas_mix)}amix=inputs={len(entradas_mix)}:duration=first:normalize=0"
+
+    # 1ª passada: mede o volume da mistura
+    r = subprocess.run(
+        [ffmpeg(), "-hide_banner", "-y", *args, "-filter_complex", ";".join(filtros + [f"{mix},loudnorm=I={lufs}:TP=-1.5:LRA=11:print_format=json[a]"]), "-map", "[a]", "-f", "null", "-"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    medido = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", r.stderr)
+    if medido:
+        m = json.loads(medido.group(0))
+        ln = (f"loudnorm=I={lufs}:TP=-1.5:LRA=11:measured_I={m['input_i']}:measured_TP={m['input_tp']}"
+              f":measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
+    else:
+        ln = f"loudnorm=I={lufs}:TP=-1.5:LRA=11"
+    # 2ª passada: aplica a correção exata
+    filtros.append(f"{mix},{ln}[a]")
+    args += ["-filter_complex", ";".join(filtros), "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", str(final)]
     rodar_ffmpeg(args, "mixar áudio")
-    print(f"✔ {final.relative_to(RAIZ)}  (áudio normalizado em {lufs} LUFS" + (f", trilha: {trilha.name})" if trilha else ")"))
+    extras = [f"trilha: {trilha.name}" if trilha else "sem trilha", "com efeitos" if efeitos else "sem efeitos"]
+    print(f"✔ {final.relative_to(RAIZ)}  ({lufs} LUFS · {' · '.join(extras)})")
     return final
 
 

@@ -1,4 +1,4 @@
-# Instala a etapa de VOZ (voz clonada + checagem de pronúncia) — usa a placa NVIDIA.
+﻿# Instala a etapa de VOZ (voz clonada + checagem de pronúncia) — usa a placa NVIDIA.
 # Uso: powershell -ExecutionPolicy Bypass -File .\instalar-voz.ps1
 # Precisa de: Python 3.12 (o instalar.ps1 já instala) e driver NVIDIA atualizado.
 # Ocupa ~8 GB (PyTorch + modelos, baixados na primeira execução).

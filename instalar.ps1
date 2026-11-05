@@ -1,4 +1,4 @@
-# Instalador da Fábrica de vídeos (Windows 10/11)
+﻿# Instalador da Fábrica de vídeos (Windows 10/11)
 # Uso: clique com o botão direito > "Executar com o PowerShell"
 #   ou: powershell -ExecutionPolicy Bypass -File .\instalar.ps1
 

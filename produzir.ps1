@@ -1,4 +1,4 @@
-# Produz um vídeo completo: voz clonada -> cenas -> mixagem (longo + short)
+﻿# Produz um vídeo completo: voz clonada -> cenas -> mixagem (longo + short)
 # Uso: powershell -ExecutionPolicy Bypass -File .\produzir.ps1 videos\demo-o-que-e-vlan
 param([Parameter(Mandatory=$true)][string]$Pasta)
 $ErrorActionPreference = "Stop"

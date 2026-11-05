@@ -1,0 +1,34 @@
+{
+  "neon": {
+    "estilo": "neon",
+    "corFundo": "#0a1018", "corFundo2": "#132033", "corCartao": "#132033", "corLinha": "#8fa3b8",
+    "corTexto": "#eef3f8", "corSuave": "#8fa3b8",
+    "corDestaque": "#3ee6a8", "corDestaque2": "#5aa9ff", "corPerigo": "#ff6b6b", "corSobreDestaque": "#0a1018",
+    "fonteTitulo": "Inter", "pesoTitulo": 800, "fonteTexto": "Inter", "fonteCodigo": "JetBrains Mono",
+    "raio": 20, "borda": 2, "sombra": true, "granulado": 0, "rabisco": false, "maiusculasTitulo": false
+  },
+  "bancada": {
+    "estilo": "bancada",
+    "corFundo": "#161310", "corFundo2": "#221d17", "corCartao": "#24201a", "corLinha": "#6e6354",
+    "corTexto": "#f3ece1", "corSuave": "#a99c88",
+    "corDestaque": "#ffae42", "corDestaque2": "#7fc8c2", "corPerigo": "#ff6a4d", "corSobreDestaque": "#161310",
+    "fonteTitulo": "Space Grotesk", "pesoTitulo": 700, "fonteTexto": "Space Grotesk", "fonteCodigo": "IBM Plex Mono",
+    "raio": 6, "borda": 2, "sombra": true, "granulado": 0.09, "rabisco": false, "maiusculasTitulo": false
+  },
+  "caderno": {
+    "estilo": "caderno",
+    "corFundo": "#f5f0e4", "corFundo2": "#ece5d3", "corCartao": "#fbf8f0", "corLinha": "#2a3142",
+    "corTexto": "#1f2533", "corSuave": "#5c6475",
+    "corDestaque": "#ffd93b", "corDestaque2": "#2f5bd3", "corPerigo": "#d9483b", "corSobreDestaque": "#1f2533",
+    "fonteTitulo": "Caveat", "pesoTitulo": 700, "fonteTexto": "Nunito", "fonteCodigo": "JetBrains Mono",
+    "raio": 10, "borda": 3, "sombra": false, "granulado": 0.06, "rabisco": true, "maiusculasTitulo": false
+  },
+  "revista": {
+    "estilo": "revista",
+    "corFundo": "#f7f4ee", "corFundo2": "#ebe6dc", "corCartao": "#ffffff", "corLinha": "#111111",
+    "corTexto": "#111111", "corSuave": "#5f5a52",
+    "corDestaque": "#ff4d2e", "corDestaque2": "#1d4ed8", "corPerigo": "#ff4d2e", "corSobreDestaque": "#ffffff",
+    "fonteTitulo": "Fraunces", "pesoTitulo": 800, "fonteTexto": "Inter", "fonteCodigo": "JetBrains Mono",
+    "raio": 0, "borda": 3, "sombra": false, "granulado": 0.035, "rabisco": false, "maiusculasTitulo": false
+  }
+}

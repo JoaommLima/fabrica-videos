@@ -4,16 +4,9 @@
   "publico": "Curiosos de tecnologia, quem está montando a primeira rede/homelab e profissionais de TI iniciantes",
   "idioma": "pt-BR",
   "tema": {
-    "nomeCanal": "JM Lab",
-    "corFundo": "#0a1018",
-    "corFundo2": "#132033",
-    "corTexto": "#eef3f8",
-    "corSuave": "#8fa3b8",
-    "corDestaque": "#3ee6a8",
-    "corDestaque2": "#5aa9ff",
-    "corPerigo": "#ff6b6b",
-    "fonteTexto": "Inter",
-    "fonteCodigo": "JetBrains Mono"
+    "_comentario": "estilo = neon | bancada | caderno | revista (presets em engine/src/estilos.json). Qualquer cor/fonte daqui sobrescreve o preset.",
+    "estilo": "neon",
+    "nomeCanal": "JM Lab"
   },
   "voz": {
     "motor": "chatterbox-multilingual",

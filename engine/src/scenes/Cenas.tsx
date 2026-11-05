@@ -1,39 +1,44 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { interpolate, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
 import type { Cena } from '../types';
-import { Palco, Sublinhado, Surge, Titulo, useEntrada, useLayout, useTema } from '../components/base';
+import { BlocoCtx, Cartao, Palco, Sublinhado, Surge, Titulo, useEntrada, useGatilhos, useLayout, useTema } from '../components/base';
 import { Icone } from '../components/Icones';
 
 type P<T extends Cena['tipo']> = { cena: Extract<Cena, { tipo: T }>; duracaoFrames: number };
 
-/** Distribui as entradas dos itens ao longo da primeira parte da narração. */
 const passo = (n: number, duracaoFrames: number, inicio = 18) => Math.max(8, Math.min(40, (duracaoFrames * 0.6 - inicio) / Math.max(1, n)));
+
+/** Frame (no bloco) em que a narração fala um número/termo — para o contador começar junto. */
+const useMomento = (alvo: string, padrao: number) => useGatilhos([alvo], undefined, padrao, 0)[0];
 
 // ───────────────────────── ABERTURA ─────────────────────────
 export const Abertura: React.FC<P<'abertura'>> = ({ cena }) => {
   const tema = useTema();
   const { u, vertical } = useLayout();
   return (
-    <Palco centro>
+    <Palco centro={tema.estilo !== 'revista'} style={tema.estilo === 'revista' ? { justifyContent: 'center' } : undefined}>
       {cena.selo && (
         <Surge>
           <div
             style={{
+              display: 'inline-block',
               fontFamily: tema.fonteCodigo,
               fontSize: 26 * u,
-              color: tema.corDestaque,
-              border: `${2 * u}px solid ${tema.corDestaque}`,
-              borderRadius: 999,
+              color: tema.estilo === 'revista' ? tema.corSobreDestaque : tema.corDestaque === '#ffd93b' ? tema.corTexto : tema.corDestaque,
+              background: tema.estilo === 'revista' ? tema.corDestaque : tema.estilo === 'caderno' ? tema.corDestaque : 'transparent',
+              border: tema.estilo === 'neon' || tema.estilo === 'bancada' ? `${2 * u}px solid ${tema.corDestaque}` : 'none',
+              borderRadius: tema.estilo === 'neon' ? 999 : tema.raio * u,
               padding: `${8 * u}px ${24 * u}px`,
               marginBottom: 36 * u,
               letterSpacing: 2 * u,
+              transform: tema.estilo === 'caderno' ? 'rotate(-2deg)' : undefined,
             }}
           >
             {cena.selo}
           </div>
         </Surge>
       )}
-      <Titulo tamanho={vertical ? 96 : 110} atraso={4}>
+      <Titulo tamanho={vertical ? 96 : 110} atraso={4} centro={tema.estilo !== 'revista'}>
         {cena.titulo}
       </Titulo>
       {cena.subtitulo && (
@@ -49,33 +54,16 @@ export const Abertura: React.FC<P<'abertura'>> = ({ cena }) => {
 export const Lista: React.FC<P<'lista'>> = ({ cena, duracaoFrames }) => {
   const tema = useTema();
   const { u } = useLayout();
-  const s = passo(cena.itens.length, duracaoFrames);
+  const quando = useGatilhos(cena.itens, cena.gatilhos, 18, passo(cena.itens.length, duracaoFrames));
   return (
     <Palco>
       <Titulo>{cena.titulo}</Titulo>
       <Sublinhado />
       <div style={{ marginTop: 60 * u, display: 'flex', flexDirection: 'column', gap: 30 * u }}>
         {cena.itens.map((item, i) => (
-          <Surge key={i} atraso={18 + i * s} de="esquerda">
+          <Surge key={i} atraso={quando[i]} de="esquerda">
             <div style={{ display: 'flex', alignItems: 'center', gap: 28 * u }}>
-              <div
-                style={{
-                  width: 64 * u,
-                  height: 64 * u,
-                  flexShrink: 0,
-                  borderRadius: 16 * u,
-                  background: tema.corDestaque,
-                  color: tema.corFundo,
-                  fontFamily: tema.fonteCodigo,
-                  fontWeight: 700,
-                  fontSize: 32 * u,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {i + 1}
-              </div>
+              <Marcador n={i + 1} />
               <div style={{ fontFamily: tema.fonteTexto, fontWeight: 600, fontSize: 46 * u, color: tema.corTexto }}>{item}</div>
             </div>
           </Surge>
@@ -85,29 +73,68 @@ export const Lista: React.FC<P<'lista'>> = ({ cena, duracaoFrames }) => {
   );
 };
 
+const Marcador: React.FC<{ n: number }> = ({ n }) => {
+  const tema = useTema();
+  const { u } = useLayout();
+  const s = 64 * u;
+  if (tema.estilo === 'caderno') {
+    return (
+      <div style={{ width: s, height: s, flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width={s} height={s} viewBox="0 0 64 64" style={{ position: 'absolute', inset: 0 }}>
+          <circle cx="32" cy="32" r="26" fill="none" stroke={tema.corDestaque2} strokeWidth={4} filter="url(#rabisco)" />
+        </svg>
+        <span style={{ fontFamily: tema.fonteTitulo, fontWeight: 700, fontSize: 44 * u, color: tema.corDestaque2 }}>{n}</span>
+      </div>
+    );
+  }
+  if (tema.estilo === 'revista') {
+    return <div style={{ width: s, flexShrink: 0, fontFamily: tema.fonteTitulo, fontWeight: 800, fontSize: 56 * u, color: tema.corDestaque }}>{String(n).padStart(2, '0')}</div>;
+  }
+  return (
+    <div
+      style={{
+        width: s,
+        height: s,
+        flexShrink: 0,
+        borderRadius: (tema.estilo === 'bancada' ? 4 : 16) * u,
+        background: tema.corDestaque,
+        color: tema.corSobreDestaque,
+        fontFamily: tema.fonteCodigo,
+        fontWeight: 700,
+        fontSize: 32 * u,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {n}
+    </div>
+  );
+};
+
 // ───────────────────────── DIAGRAMA DE REDE ─────────────────────────
 export const Diagrama: React.FC<P<'diagrama'>> = ({ cena, duracaoFrames }) => {
   const tema = useTema();
   const frame = useCurrentFrame();
   const { u, vertical, width, height } = useLayout();
-  const paleta = [tema.corDestaque, tema.corDestaque2, tema.corPerigo, '#c084fc'];
+  const paleta = [...new Set([tema.corDestaque2, tema.estilo === 'caderno' ? '#2e9e6b' : tema.corDestaque, tema.corPerigo, '#2e9e6b', '#9b6bd6'])];
   const gruposIds = Object.keys(cena.grupos ?? {});
-  const corDe = (g?: string) => (g ? paleta[gruposIds.indexOf(g) % paleta.length] : tema.corSuave);
+  const corDe = (g?: string) => (g ? paleta[gruposIds.indexOf(g) % paleta.length] : tema.estilo === 'neon' ? tema.corSuave : tema.corLinha);
 
-  // Área do diagrama (px)
-  const topo = cena.titulo ? (vertical ? 480 : 260) * u : 120 * u;
+  const topo = cena.titulo ? (vertical ? 480 : 310) * u : 120 * u;
   const area = { x: (vertical ? 90 : 220) * u, y: topo, w: width - (vertical ? 180 : 440) * u, h: height - topo - (vertical ? 640 : 260) * u };
   const pos = (id: string) => {
     const n = cena.nos.find((n) => n.id === id)!;
     return { x: area.x + (n.x / 100) * area.w, y: area.y + (n.y / 100) * area.h };
   };
-  const s = passo(cena.nos.length, duracaoFrames, 10) * 0.6;
-  const fimNos = 10 + cena.nos.length * s;
+  // cada aparelho aparece quando é citado na narração
+  const quando = useGatilhos(cena.nos.map((n) => n.rotulo), cena.gatilhos, 10, passo(cena.nos.length, duracaoFrames, 10) * 0.6);
+  const quandoDe = (id: string) => quando[cena.nos.findIndex((n) => n.id === id)];
+  const fimNos = Math.max(...quando);
 
-  // Pacote viajando pelo caminho
   let pacote: { x: number; y: number } | null = null;
   if (cena.pacote && cena.pacote.length > 1) {
-    const ini = fimNos + 15;
+    const ini = fimNos + 12;
     const dur = Math.max(30, duracaoFrames - ini - 25);
     const t = interpolate(frame, [ini, ini + dur], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.inOut(Easing.cubic) });
     if (frame >= ini) {
@@ -120,6 +147,7 @@ export const Diagrama: React.FC<P<'diagrama'>> = ({ cena, duracaoFrames }) => {
     }
   }
   const tamIcone = (vertical ? 100 : 92) * u;
+  const corLigacao = tema.estilo === 'neon' ? tema.corSuave : tema.corLinha;
 
   return (
     <>
@@ -129,11 +157,12 @@ export const Diagrama: React.FC<P<'diagrama'>> = ({ cena, duracaoFrames }) => {
           <Sublinhado />
         </Palco>
       )}
-      <svg style={{ position: 'absolute', inset: 0 }} width={width} height={height}>
+      <svg style={{ position: 'absolute', inset: 0, overflow: 'visible' }} width={width} height={height}>
         {cena.ligacoes.map(([a, b], i) => {
           const pa = pos(a);
           const pb = pos(b);
-          const prog = interpolate(frame, [fimNos * 0.5 + i * 3, fimNos * 0.5 + i * 3 + 18], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+          const ini = Math.max(quandoDe(a), quandoDe(b));
+          const prog = interpolate(frame, [ini, ini + 14], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
           return (
             <line
               key={i}
@@ -141,24 +170,26 @@ export const Diagrama: React.FC<P<'diagrama'>> = ({ cena, duracaoFrames }) => {
               y1={pa.y}
               x2={pa.x + (pb.x - pa.x) * prog}
               y2={pa.y + (pb.y - pa.y) * prog}
-              stroke={tema.corSuave}
-              strokeOpacity={0.55}
-              strokeWidth={4 * u}
-              strokeDasharray={`${10 * u} ${8 * u}`}
+              stroke={corLigacao}
+              strokeOpacity={tema.estilo === 'neon' ? 0.55 : 0.8}
+              strokeWidth={(tema.estilo === 'revista' ? 3 : 4) * u}
+              strokeLinecap="round"
+              strokeDasharray={tema.estilo === 'revista' || tema.estilo === 'caderno' ? undefined : `${10 * u} ${8 * u}`}
               strokeDashoffset={-frame * 1.2 * u}
+              filter={tema.rabisco ? 'url(#rabisco)' : undefined}
             />
           );
         })}
         {pacote && (
           <>
-            <circle cx={pacote.x} cy={pacote.y} r={26 * u} fill={tema.corDestaque} opacity={0.25} />
-            <circle cx={pacote.x} cy={pacote.y} r={13 * u} fill={tema.corDestaque} />
+            <circle cx={pacote.x} cy={pacote.y} r={26 * u} fill={tema.corPerigo} opacity={0.25} />
+            <circle cx={pacote.x} cy={pacote.y} r={13 * u} fill={tema.corPerigo} />
           </>
         )}
       </svg>
       {cena.nos.map((n, i) => {
         const p = pos(n.id);
-        const e = useEntrada(10 + i * s);
+        const e = useEntrada(quando[i]);
         const cor = corDe(n.grupo);
         return (
           <div
@@ -167,34 +198,35 @@ export const Diagrama: React.FC<P<'diagrama'>> = ({ cena, duracaoFrames }) => {
               position: 'absolute',
               left: p.x,
               top: p.y,
-              transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * e})`,
+              transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * e}) rotate(${tema.estilo === 'caderno' ? (i % 2 ? 1.5 : -1.5) : 0}deg)`,
               opacity: e,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
             }}
           >
+            <Cartao cor={cor} style={{ width: tamIcone * 1.55, height: tamIcone * 1.55, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: tamIcone * 1.55, height: tamIcone * 1.55, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icone nome={n.icone} cor={cor} tamanho={tamIcone} />
+              </div>
+            </Cartao>
             <div
               style={{
-                width: tamIcone * 1.55,
-                height: tamIcone * 1.55,
-                borderRadius: 28 * u,
-                background: tema.corFundo2,
-                border: `${3 * u}px solid ${cor}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: `0 ${10 * u}px ${30 * u}px rgba(0,0,0,0.35)`,
+                marginTop: 14 * u,
+                fontFamily: tema.estilo === 'caderno' ? tema.fonteTitulo : tema.fonteTexto,
+                fontWeight: tema.estilo === 'caderno' ? 700 : 600,
+                fontSize: (tema.estilo === 'caderno' ? 40 : 30) * u,
+                color: tema.corTexto,
+                whiteSpace: 'nowrap',
               }}
             >
-              <Icone nome={n.icone} cor={cor} tamanho={tamIcone} />
+              {n.rotulo}
             </div>
-            <div style={{ marginTop: 14 * u, fontFamily: tema.fonteTexto, fontWeight: 600, fontSize: 30 * u, color: tema.corTexto, whiteSpace: 'nowrap' }}>{n.rotulo}</div>
           </div>
         );
       })}
       {gruposIds.length > 0 && (
-        <div style={{ position: 'absolute', left: (vertical ? 70 : 150) * u, bottom: (vertical ? 470 : 70) * u, display: 'flex', flexDirection: vertical ? 'column' : 'row', gap: (vertical ? 12 : 36) * u }}>
+        <div style={{ position: 'absolute', ...(vertical ? { left: 70 * u, bottom: 470 * u, flexDirection: 'column' } : { right: 150 * u, top: 150 * u, flexDirection: 'row' }), display: 'flex', gap: (vertical ? 14 : 32) * u }}>
           {gruposIds.map((g) => (
             <Surge key={g} atraso={fimNos}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 * u, fontFamily: tema.fonteCodigo, fontSize: 26 * u, color: tema.corTexto }}>
@@ -216,7 +248,7 @@ export const Terminal: React.FC<P<'terminal'>> = ({ cena, duracaoFrames }) => {
   const { u } = useLayout();
   const prompt = cena.prompt ?? '[admin@MikroTik] >';
   const totalChars = cena.linhas.reduce((s, l) => s + (l.cmd?.length ?? 0) + 12, 0);
-  const vel = Math.max(1.2, totalChars / Math.max(30, duracaoFrames * 0.7 - 20)); // caracteres por frame
+  const vel = Math.max(1.2, totalChars / Math.max(30, duracaoFrames * 0.7 - 20));
   let orcamento = Math.max(0, (frame - 20) * vel);
   return (
     <Palco>
@@ -227,7 +259,17 @@ export const Terminal: React.FC<P<'terminal'>> = ({ cena, duracaoFrames }) => {
         </>
       )}
       <Surge atraso={6} de="zoom" style={{ marginTop: (cena.titulo ? 50 : 0) * u, flex: 1 }}>
-        <div style={{ background: '#0b0f14', borderRadius: 20 * u, border: `${2 * u}px solid #263040`, height: '100%', overflow: 'hidden', boxShadow: `0 ${20 * u}px ${60 * u}px rgba(0,0,0,0.5)` }}>
+        <div
+          style={{
+            background: '#0b0f14',
+            borderRadius: Math.max(6, tema.raio) * u,
+            border: `${2 * u}px solid #263040`,
+            height: '100%',
+            overflow: 'hidden',
+            boxShadow: tema.estilo === 'revista' ? `${10 * u}px ${10 * u}px 0 ${tema.corLinha}` : `0 ${20 * u}px ${60 * u}px rgba(0,0,0,0.45)`,
+            transform: tema.estilo === 'caderno' ? 'rotate(-0.6deg)' : undefined,
+          }}
+        >
           <div style={{ display: 'flex', gap: 12 * u, padding: `${18 * u}px ${24 * u}px`, borderBottom: `${2 * u}px solid #1c2430` }}>
             {['#ff5f57', '#febc2e', '#28c840'].map((c) => (
               <div key={c} style={{ width: 18 * u, height: 18 * u, borderRadius: 99, background: c }} />
@@ -244,7 +286,7 @@ export const Terminal: React.FC<P<'terminal'>> = ({ cena, duracaoFrames }) => {
                 <div key={i}>
                   {l.cmd !== undefined && (
                     <div>
-                      <span style={{ color: tema.corDestaque }}>{prompt} </span>
+                      <span style={{ color: tema.estilo === 'neon' ? tema.corDestaque : '#7ee2b8' }}>{prompt} </span>
                       <span style={{ color: '#e6edf3' }}>{cmd.slice(0, mostrados)}</span>
                       {digitando && <span style={{ background: '#e6edf3', opacity: Math.floor(frame / 8) % 2 ? 1 : 0.2 }}>&nbsp;</span>}
                     </div>
@@ -265,21 +307,23 @@ export const Comparacao: React.FC<P<'comparacao'>> = ({ cena, duracaoFrames }) =
   const tema = useTema();
   const { u, vertical } = useLayout();
   const n = Math.max(cena.esquerda.itens.length, cena.direita.itens.length);
-  const s = passo(n * 2, duracaoFrames, 24);
-  const Coluna: React.FC<{ lado: 'esquerda' | 'direita'; cor: string }> = ({ lado, cor }) => {
+  // as colunas aparecem quando os títulos são falados; os itens de cada lado vêm em seguida
+  const [qe, qd] = useGatilhos([cena.esquerda.titulo, cena.direita.titulo], undefined, 10, passo(2, duracaoFrames, 10));
+  const s = passo(n * 2, duracaoFrames, 24) * 0.7;
+  const corE = tema.corDestaque2;
+  const corD = tema.estilo === 'caderno' ? tema.corPerigo : tema.corDestaque;
+  const Coluna: React.FC<{ lado: 'esquerda' | 'direita'; cor: string; ini: number }> = ({ lado, cor, ini }) => {
     const c = cena[lado];
     return (
-      <Surge atraso={lado === 'esquerda' ? 10 : 18} de={lado === 'esquerda' ? 'esquerda' : 'direita'} style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ background: tema.corFundo2, borderRadius: 28 * u, padding: 44 * u, borderTop: `${8 * u}px solid ${cor}` }}>
-          <div style={{ fontFamily: tema.fonteTexto, fontWeight: 800, fontSize: 48 * u, color: cor, marginBottom: 30 * u }}>{c.titulo}</div>
+      <Surge atraso={ini} de={lado === 'esquerda' ? 'esquerda' : 'direita'} style={{ flex: 1, minWidth: 0 }}>
+        <Cartao topo={tema.estilo === 'caderno' ? undefined : cor} style={{ padding: 44 * u }}>
+          <div style={{ fontFamily: tema.fonteTitulo, fontWeight: tema.pesoTitulo, fontSize: (tema.estilo === 'caderno' ? 62 : 48) * u, color: cor, marginBottom: 30 * u }}>{c.titulo}</div>
           {c.itens.map((it, i) => (
-            <Surge key={i} atraso={24 + (i * 2 + (lado === 'direita' ? 1 : 0)) * s}>
-              <div style={{ fontFamily: tema.fonteTexto, fontSize: 36 * u, color: tema.corTexto, padding: `${14 * u}px 0`, borderBottom: `${1 * u}px solid rgba(255,255,255,0.08)` }}>
-                {it}
-              </div>
+            <Surge key={i} atraso={ini + 10 + i * s}>
+              <div style={{ fontFamily: tema.fonteTexto, fontSize: 36 * u, color: tema.corTexto, padding: `${14 * u}px 0`, borderBottom: `${1 * u}px solid ${tema.corLinha}22` }}>{it}</div>
             </Surge>
           ))}
-        </div>
+        </Cartao>
       </Surge>
     );
   };
@@ -291,9 +335,9 @@ export const Comparacao: React.FC<P<'comparacao'>> = ({ cena, duracaoFrames }) =
           <Sublinhado />
         </>
       )}
-      <div style={{ display: 'flex', flexDirection: vertical ? 'column' : 'row', alignItems: 'flex-start', gap: 40 * u, marginTop: 60 * u }}>
-        <Coluna lado="esquerda" cor={tema.corDestaque2} />
-        <Coluna lado="direita" cor={tema.corDestaque} />
+      <div style={{ display: 'flex', flexDirection: vertical ? 'column' : 'row', alignItems: 'flex-start', gap: 48 * u, marginTop: 60 * u }}>
+        <Coluna lado="esquerda" cor={corE} ini={qe} />
+        <Coluna lado="direita" cor={corD} ini={qd} />
       </div>
     </Palco>
   );
@@ -304,18 +348,32 @@ export const Numero: React.FC<P<'numero'>> = ({ cena, duracaoFrames }) => {
   const tema = useTema();
   const frame = useCurrentFrame();
   const { u, vertical } = useLayout();
-  const t = interpolate(frame, [8, Math.min(70, duracaoFrames * 0.5)], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) });
+  const { palavras } = useContext(BlocoCtx);
+  // contador dispara quando a narração chega no número (procura palavras como "mil", "quatro")
+  const ini = useMomento(String(cena.valor).length > 3 ? 'mil' : String(cena.valor), palavras.length ? 8 : 2);
+  const t = interpolate(frame, [ini, ini + Math.min(45, duracaoFrames * 0.4)], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) });
   const v = (cena.valor * t).toLocaleString('pt-BR', { minimumFractionDigits: cena.casas ?? 0, maximumFractionDigits: cena.casas ?? 0 });
+  const cor = tema.estilo === 'caderno' ? tema.corDestaque2 : tema.corDestaque;
   return (
     <Palco centro>
       <Surge de="zoom">
-        <div style={{ fontFamily: tema.fonteTexto, fontWeight: 800, fontSize: (vertical ? 190 : 230) * u, color: tema.corDestaque, letterSpacing: -6 * u, lineHeight: 1 }}>
+        <div
+          style={{
+            fontFamily: tema.fonteTitulo,
+            fontWeight: tema.pesoTitulo,
+            fontSize: (vertical ? 190 : 230) * (tema.estilo === 'caderno' ? 1.25 : 1) * u,
+            color: cor,
+            letterSpacing: (tema.estilo === 'caderno' ? 0 : -6) * u,
+            lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           {cena.prefixo}
           {v}
           {cena.sufixo}
         </div>
       </Surge>
-      <Surge atraso={16}>
+      <Surge atraso={ini + 10}>
         <div style={{ fontFamily: tema.fonteTexto, fontSize: 46 * u, color: tema.corTexto, marginTop: 30 * u, maxWidth: 1200 * u }}>{cena.legenda}</div>
       </Surge>
     </Palco>
@@ -329,10 +387,12 @@ export const Frase: React.FC<P<'frase'>> = ({ cena }) => {
   return (
     <Palco centro>
       <Surge>
-        <div style={{ fontFamily: tema.fonteTexto, fontWeight: 800, fontSize: 160 * u, color: tema.corDestaque, lineHeight: 0.6, height: 80 * u }}>“</div>
+        <div style={{ fontFamily: tema.fonteTitulo, fontWeight: 800, fontSize: 160 * u, color: tema.estilo === 'caderno' ? tema.corPerigo : tema.corDestaque, lineHeight: 0.6, height: 80 * u }}>“</div>
       </Surge>
       <Surge atraso={6}>
-        <div style={{ fontFamily: tema.fonteTexto, fontWeight: 600, fontSize: (vertical ? 62 : 68) * u, color: tema.corTexto, maxWidth: 1400 * u, lineHeight: 1.25 }}>{cena.texto}</div>
+        <div style={{ fontFamily: tema.fonteTitulo, fontWeight: tema.pesoTitulo, fontSize: (vertical ? 62 : 68) * (tema.estilo === 'caderno' ? 1.3 : 1) * u, color: tema.corTexto, maxWidth: 1400 * u, lineHeight: 1.2 }}>
+          {cena.texto}
+        </div>
       </Surge>
       {cena.autor && (
         <Surge atraso={18}>
@@ -348,8 +408,13 @@ export const LinhaDoTempo: React.FC<P<'linha-do-tempo'>> = ({ cena, duracaoFrame
   const tema = useTema();
   const frame = useCurrentFrame();
   const { u, vertical } = useLayout();
-  const s = passo(cena.marcos.length, duracaoFrames, 20);
-  const prog = interpolate(frame, [14, 20 + cena.marcos.length * s], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const quando = useGatilhos(
+    cena.marcos.map((m) => `${m.ano} ${m.texto}`),
+    cena.gatilhos,
+    20,
+    passo(cena.marcos.length, duracaoFrames, 20),
+  );
+  const prog = interpolate(frame, [quando[0] - 6, quando[quando.length - 1] + 10], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <Palco>
       {cena.titulo && (
@@ -362,16 +427,17 @@ export const LinhaDoTempo: React.FC<P<'linha-do-tempo'>> = ({ cena, duracaoFrame
         <div
           style={{
             position: 'absolute',
-            background: tema.corDestaque,
+            background: tema.estilo === 'neon' ? tema.corDestaque : tema.corLinha,
+            filter: tema.rabisco ? 'url(#rabisco)' : undefined,
             ...(vertical ? { left: 22 * u, top: 0, width: 6 * u, height: `${prog * 100}%` } : { left: 0, top: '50%', height: 6 * u, width: `${prog * 100}%` }),
           }}
         />
         {cena.marcos.map((m, i) => (
-          <Surge key={i} atraso={20 + i * s} style={{ flex: 1, position: 'relative' }}>
+          <Surge key={i} atraso={quando[i]} style={{ flex: 1, position: 'relative' }}>
             <div style={{ display: 'flex', flexDirection: vertical ? 'row' : 'column', alignItems: vertical ? 'center' : 'flex-start', gap: 20 * u, paddingLeft: vertical ? 0 : 10 * u }}>
-              <div style={{ width: 50 * u, height: 50 * u, borderRadius: 99, background: tema.corFundo, border: `${6 * u}px solid ${tema.corDestaque}`, flexShrink: 0 }} />
+              <div style={{ width: 50 * u, height: 50 * u, borderRadius: 99, background: tema.corFundo, border: `${6 * u}px solid ${tema.estilo === 'caderno' ? tema.corPerigo : tema.corDestaque}`, flexShrink: 0 }} />
               <div>
-                <div style={{ fontFamily: tema.fonteCodigo, fontWeight: 700, fontSize: 40 * u, color: tema.corDestaque }}>{m.ano}</div>
+                <div style={{ fontFamily: tema.fonteCodigo, fontWeight: 700, fontSize: 40 * u, color: tema.estilo === 'caderno' ? tema.corDestaque2 : tema.corDestaque }}>{m.ano}</div>
                 <div style={{ fontFamily: tema.fonteTexto, fontSize: 32 * u, color: tema.corTexto, maxWidth: 360 * u, marginTop: 6 * u }}>{m.texto}</div>
               </div>
             </div>
@@ -388,27 +454,31 @@ export const Encerramento: React.FC<P<'encerramento'>> = ({ cena }) => {
   const { u } = useLayout();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const quando = useGatilhos(['inscreve inscreva'], undefined, 22, 0)[0];
   const pulso = 1 + 0.04 * Math.sin((frame / fps) * Math.PI * 2);
   return (
     <Palco centro>
-      <Titulo tamanho={90}>{cena.titulo}</Titulo>
+      <Titulo tamanho={90} centro>
+        {cena.titulo}
+      </Titulo>
       {cena.texto && (
         <Surge atraso={10}>
           <div style={{ fontFamily: tema.fonteTexto, fontSize: 40 * u, color: tema.corSuave, marginTop: 26 * u, maxWidth: 1300 * u }}>{cena.texto}</div>
         </Surge>
       )}
-      <Surge atraso={22} de="zoom">
+      <Surge atraso={quando} de="zoom">
         <div
           style={{
             marginTop: 60 * u,
-            transform: `scale(${pulso})`,
-            background: tema.corDestaque,
-            color: tema.corFundo,
-            fontFamily: tema.fonteTexto,
+            transform: `scale(${pulso}) rotate(${tema.estilo === 'caderno' ? -2 : 0}deg)`,
+            background: tema.estilo === 'caderno' ? tema.corPerigo : tema.corDestaque,
+            color: tema.estilo === 'caderno' ? '#fff' : tema.corSobreDestaque,
+            fontFamily: tema.estilo === 'caderno' ? tema.fonteTitulo : tema.fonteTexto,
             fontWeight: 800,
-            fontSize: 44 * u,
+            fontSize: (tema.estilo === 'caderno' ? 56 : 44) * u,
             padding: `${22 * u}px ${56 * u}px`,
-            borderRadius: 999,
+            borderRadius: tema.estilo === 'neon' ? 999 : tema.raio * u,
+            boxShadow: tema.estilo === 'revista' ? `${6 * u}px ${6 * u}px 0 ${tema.corLinha}` : undefined,
           }}
         >
           Inscreva-se

@@ -52,6 +52,23 @@ def ffmpeg() -> str:
 
 
 # ───────────────────────── preparar ─────────────────────────
+def montar_tema(cfg_tema: dict, estilo_roteiro: str | None = None) -> dict:
+    """Preset do estilo (engine/src/estilos.json) + ajustes do canal."""
+    presets = carregar_json(ENGINE / "src" / "estilos.json")
+    estilo = estilo_roteiro or cfg_tema.get("estilo", "neon")
+    if estilo not in presets:
+        sys.exit(f"Estilo '{estilo}' não existe. Opções: {', '.join(presets)}")
+    ajustes = {k: v for k, v in cfg_tema.items() if not k.startswith("_")}
+    ajustes["estilo"] = estilo
+    return {**presets[estilo], **ajustes}
+
+
+def palavras_bloco(reais: list, estimadas: list, ini: float, dur: float) -> list:
+    """Palavras (tempo absoluto) que caem dentro do bloco que começa em `ini`."""
+    fonte = reais if reais else estimadas
+    return [w for w in fonte if ini - 0.01 <= w["inicio"] < ini + dur]
+
+
 def preparar(pasta: Path) -> Path:
     cfg = carregar_json(RAIZ / "canal" / "config.json")
     rot = carregar_json(pasta / "roteiro.json")
@@ -78,13 +95,14 @@ def preparar(pasta: Path) -> Path:
             passo = fala / max(1, len(palavras))
             for i, w in enumerate(palavras):
                 palavras_estimadas.append({"texto": w, "inicio": round(t + i * passo, 3), "fim": round(t + (i + 1) * passo, 3)})
+        b["palavras"] = [{"texto": w["texto"], "inicio": round(w["inicio"] - t, 3), "fim": round(w["fim"] - t, 3)} for w in palavras_bloco(palavras_reais, palavras_estimadas, t, fala)]
         b["inicioAudio"] = round(t, 3)
         b["duracao"] = round(fala + FOLGA_BLOCO, 3)
         t += b["duracao"]
 
     props = {
         "titulo": rot["titulo"],
-        "tema": cfg["tema"],
+        "tema": montar_tema(cfg["tema"], rot.get("estilo")),
         "blocos": rot["blocos"],
         "mostrarLegenda": rot.get("mostrarLegenda", True),
         "legendas": carregar_json(legendas_reais) if legendas_reais.exists() else (palavras_reais if tem_audio else palavras_estimadas),

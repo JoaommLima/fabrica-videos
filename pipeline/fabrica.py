@@ -139,6 +139,35 @@ def preparar(pasta: Path) -> Path:
     return destino
 
 
+# ───────────────────────── navegador do Remotion ─────────────────────────
+_navegador_ok = False
+
+
+def garantir_navegador() -> None:
+    """O Remotion desenha as cenas num Chrome "headless" que ele baixa em engine/node_modules/.remotion.
+    Se a pasta existe mas o .exe sumiu (antivírus costuma apagar), ele não baixa de novo e falha
+    com "No browser found". Aqui a gente detecta, limpa e baixa outra vez."""
+    global _navegador_ok
+    if _navegador_ok:
+        return
+    pasta = ENGINE / "node_modules" / ".remotion"
+    nome = "chrome-headless-shell.exe" if os.name == "nt" else "chrome-headless-shell"
+    tem_exe = lambda: pasta.exists() and any(p.is_file() for p in pasta.rglob(nome))
+    if pasta.exists() and not tem_exe():
+        print("⚠ navegador do Remotion incompleto (o antivírus pode ter apagado) — baixando de novo…")
+        shutil.rmtree(pasta, ignore_errors=True)
+    if not tem_exe():
+        npx = "npx.cmd" if os.name == "nt" else "npx"
+        subprocess.run([npx, "remotion", "browser", "ensure"], cwd=ENGINE, check=False)
+    if not tem_exe():
+        sys.exit(
+            "✗ Não consegui deixar o navegador do Remotion pronto.\n"
+            "  Provável causa: o Windows Defender apagou o chrome-headless-shell.exe.\n"
+            f"  Adicione esta pasta às exclusões do Defender e rode de novo:\n  {pasta}"
+        )
+    _navegador_ok = True
+
+
 # ───────────────────────── renderizar ─────────────────────────
 def renderizar(pasta: Path, short: bool = False, chrome: str | None = None) -> Path:
     props = pasta / "saida" / "props.json"
@@ -150,6 +179,8 @@ def renderizar(pasta: Path, short: bool = False, chrome: str | None = None) -> P
     chrome = chrome or os.environ.get("REMOTION_CHROME")
     if chrome:
         cmd.append(f"--browser-executable={chrome}")
+    else:
+        garantir_navegador()
     print("▶ renderizando cenas…")
     subprocess.run(cmd, cwd=ENGINE, check=True)
     print(f"✔ {saida.relative_to(RAIZ)}")
@@ -245,6 +276,8 @@ def thumbs(pasta: Path, chrome: str | None = None) -> list[Path]:
     tema = montar_tema(cfg["tema"], rot.get("estilo"))
     npx = "npx.cmd" if os.name == "nt" else "npx"
     chrome = chrome or os.environ.get("REMOTION_CHROME")
+    if not chrome:
+        garantir_navegador()
     saidas = []
     for v in (1, 2, 3):
         props = pasta / "saida" / f"thumb-{v}.props.json"

@@ -43,8 +43,31 @@ def salvar_json(p: Path, dados) -> None:
 
 
 def duracao_wav(p: Path) -> float:
-    with wave.open(str(p), "rb") as w:
-        return w.getnframes() / float(w.getframerate())
+    """Duração de um WAV lendo o cabeçalho RIFF (aceita PCM 16/24 bits e float 32)."""
+    import struct
+
+    with open(p, "rb") as f:
+        if f.read(4) != b"RIFF":
+            raise ValueError(f"{p.name} não é WAV")
+        f.read(4)
+        if f.read(4) != b"WAVE":
+            raise ValueError(f"{p.name} não é WAV")
+        bytes_por_seg = None
+        while True:
+            cab = f.read(8)
+            if len(cab) < 8:
+                break
+            nome, tam = cab[:4], struct.unpack("<I", cab[4:])[0]
+            if nome == b"fmt ":
+                fmt = f.read(tam)
+                bytes_por_seg = struct.unpack("<I", fmt[8:12])[0]
+            elif nome == b"data":
+                if not bytes_por_seg:
+                    break
+                return tam / bytes_por_seg
+            else:
+                f.seek(tam + (tam & 1), 1)
+    raise ValueError(f"Cabeçalho WAV inválido: {p}")
 
 
 def ffmpeg() -> str:

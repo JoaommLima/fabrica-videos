@@ -81,26 +81,45 @@ class Voz:
         self.temp = cfg.get("temperatura", 0.8)
 
     def falar(self, texto: str, destino: Path, semente: int) -> float:
-        import torchaudio
+        """Gera frase por frase (o modelo às vezes corta o fim de textos longos) e junta com pausas curtas."""
+        import numpy as np
+        import soundfile as sf
 
         self.torch.manual_seed(semente)
-        wav = self.m.generate(
-            texto,
-            language_id="pt",
-            audio_prompt_path=self.amostra,
-            exaggeration=self.exag,
-            cfg_weight=self.cfg_w,
-            temperature=self.temp,
-        )
-        wav = aparar_silencio(wav, self.m.sr)
-        torchaudio.save(str(destino), wav.cpu(), self.m.sr)
-        return wav.shape[-1] / self.m.sr
+        if not getattr(self, "_preparado", False):
+            self.m.prepare_conditionals(self.amostra, exaggeration=self.exag)
+            self._preparado = True
+        pausa = np.zeros(int(0.22 * self.m.sr), dtype=np.float32)
+        pedacos = []
+        for frase in dividir_frases(texto):
+            wav = self.m.generate(frase, language_id="pt", exaggeration=self.exag, cfg_weight=self.cfg_w, temperature=self.temp)
+            wav = aparar_silencio(wav, self.m.sr)
+            if pedacos:
+                pedacos.append(pausa)
+            pedacos.append(wav.squeeze(0).detach().cpu().numpy().astype(np.float32))
+        audio = np.concatenate(pedacos) if pedacos else pausa
+        pico = float(np.max(np.abs(audio))) or 1.0
+        audio = audio / max(pico, 1.0) * 0.98  # evita estourar ao converter para 16 bits
+        sf.write(str(destino), audio, self.m.sr, subtype="PCM_16")  # WAV 16 bits: lido por qualquer ferramenta
+        return len(audio) / self.m.sr
 
     def liberar(self):
         del self.m
         gc.collect()
         if self.dev == "cuda":
             self.torch.cuda.empty_cache()
+
+
+def dividir_frases(texto: str) -> list[str]:
+    """Quebra em frases; frases muito curtas (até 3 palavras) vão junto com a próxima."""
+    partes = [p.strip() for p in re.split(r"(?<=[.!?…])\s+", texto) if p.strip()]
+    out: list[str] = []
+    for p in partes:
+        if out and len(out[-1].split()) <= 3:
+            out[-1] = f"{out[-1]} {p}"
+        else:
+            out.append(p)
+    return out or [texto]
 
 
 def aparar_silencio(wav, sr, limiar=0.01, folga=0.08):
@@ -128,7 +147,13 @@ class Ouvido:
             self.m = WhisperModel("medium", device="cpu", compute_type="int8")
 
     def ouvir(self, wav: Path, dica: str = ""):
-        segs, _ = self.m.transcribe(str(wav), language="pt", word_timestamps=True, initial_prompt=dica[:200], vad_filter=False)
+        # Carrega o áudio aqui (16 kHz mono) em vez de deixar o Whisper abrir o arquivo:
+        # evita a incompatibilidade entre faster-whisper e versões novas do PyAV.
+        import librosa
+        import numpy as np
+
+        audio, _ = librosa.load(str(wav), sr=16000, mono=True)
+        segs, _ = self.m.transcribe(audio.astype(np.float32), language="pt", word_timestamps=True, initial_prompt=dica[:200], vad_filter=False)
         palavras = [{"texto": w.word.strip(), "inicio": round(w.start, 3), "fim": round(w.end, 3)} for s in segs for w in (s.words or [])]
         return " ".join(p["texto"] for p in palavras), palavras
 
@@ -166,17 +191,20 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
     adir = pasta / "audio"
     adir.mkdir(exist_ok=True)
 
-    pendentes = [b for b in rot["blocos"] if tudo or (refazer and b["id"] in refazer) or not (adir / f"{b['id']}.wav").exists()]
+    for b in rot["blocos"]:
+        b["_fala"] = para_fala(b["narracao"], dic)
+    gerar = [b for b in rot["blocos"] if tudo or (refazer and b["id"] in refazer) or not wav_ok(adir / f"{b['id']}.wav")]
+    # confere tudo que foi gerado agora + o que ainda não tem checagem salva
+    pendentes = [b for b in rot["blocos"] if b in gerar or not (adir / f"{b['id']}.json").exists()]
     if not pendentes:
-        print("✔ todos os blocos já têm narração (use --refazer <id> ou --tudo).")
+        print("✔ todos os blocos já têm narração conferida (use --refazer <id> ou --tudo).")
         return
 
-    # 1) gerar todas as falas (modelo de voz na GPU)
+    # 1) gerar as falas que faltam (modelo de voz na GPU)
     voz = Voz(amostra, cfg)
-    for b in pendentes:
-        fala = para_fala(b["narracao"], dic)
-        b["_fala"] = fala
-        voz.falar(fala, adir / f"{b['id']}.wav", semente=1)
+    for b in gerar:
+        voz.falar(b["_fala"], adir / f"{b['id']}.wav", semente=1)
+        (adir / f"{b['id']}.json").unlink(missing_ok=True)
         print(f"  ♪ {b['id']}")
 
     # 2) conferir (Whisper) — troca de modelo para não estourar os 8 GB da 4060
@@ -216,6 +244,18 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
     if ruins:
         print(f"⚠ ainda com pronúncia duvidosa: {', '.join(ruins)} — ouça e, se precisar, ajuste canal/pronuncia.json")
     print("✔ narração pronta. Próximo: python pipeline/fabrica.py tudo " + str(pasta.relative_to(RAIZ)))
+
+
+def wav_ok(p: Path) -> bool:
+    """Existe e está em PCM 16 bits (versões antigas salvavam em float e precisam ser refeitas)."""
+    if not p.exists():
+        return False
+    try:
+        import soundfile as sf
+
+        return sf.info(str(p)).subtype == "PCM_16"
+    except Exception:
+        return False
 
 
 def teste(frase: str):

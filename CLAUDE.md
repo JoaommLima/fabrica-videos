@@ -23,7 +23,7 @@ O JM conversa com você em português; você opera a fábrica. **Nada é publica
      `tags`, `comentarioFixado` e `thumbnail` (`texto` de 2 a 5 palavras, `destaque`, `selo`, `icones`).
 4. Mostre o roteiro ao JM e espere ele aprovar ou ajustar.
 5. Rode `powershell -ExecutionPolicy Bypass -File .\produzir.ps1 videos\<slug>` (voz + longo + short + thumbnails + kit).
-6. Peça ao JM para revisar no painel (`PAINEL.bat`) e clicar em Aprovar.
+6. Peça ao JM para revisar na Central (`FABRICA.bat`) e clicar em Aprovar.
 
 ## Regras
 - Português do Brasil, linguagem de conversa, sem jargão sem explicar.

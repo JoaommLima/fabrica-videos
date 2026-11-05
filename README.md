@@ -20,7 +20,8 @@ roteiro (Claude Code) → voz clonada (RTX 4060) → checagem de pronúncia (Whi
 | 4 estilos visuais + animação no ritmo da fala | ✅ pronto |
 | 3 thumbnails + kit (título, descrição com capítulos, fontes, tags) | ✅ pronto |
 | Shorts com cortes escolhidos (hoje: vídeo inteiro em 9:16) | ⏳ |
-| Painel de aprovação no navegador (`PAINEL.bat`) | ✅ pronto |
+| Central da Fábrica: interface gráfica (`FABRICA.bat`) | ✅ pronto |
+| Música de fundo + efeitos sonoros (originais) | ✅ pronto |
 | Upload pela YouTube Data API (privado + agendado) | ⏳ |
 | Fila de temas | ⏳ |
 
@@ -33,6 +34,12 @@ powershell -ExecutionPolicy Bypass -File .\instalar.ps1
 ```
 
 ## Uso
+
+**Jeito fácil:** dois cliques em `FABRICA.bat` (cria também um atalho “Fábrica de Vídeos” na Área de Trabalho).
+Abre a **Central da Fábrica** no navegador: produzir, ouvir/refazer blocos da voz, comparar perfis,
+pronúncia, estilo, música, volumes e aprovação — tudo com botões.
+
+**Pela linha de comando:**
 
 ```powershell
 # vídeo de demonstração (sem narração ainda: tempos estimados)

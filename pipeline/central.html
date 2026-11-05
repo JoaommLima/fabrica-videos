@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central da Fábrica</title>
+<style>
+:root{--bg:#161310;--bg2:#1d1914;--card:#24201a;--card2:#2b261f;--line:#3a332a;--tx:#f3ece1;--sub:#a99c88;--amb:#ffae42;--ok:#7fc8c2;--err:#ff6a4d;--mono:Consolas,"Cascadia Mono",monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--amb)}
+.faixa{height:7px;background:repeating-linear-gradient(-45deg,var(--amb) 0 10px,var(--bg) 10px 20px)}
+header{display:flex;align-items:center;gap:18px;padding:14px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.marca{font-family:var(--mono);letter-spacing:2px;color:var(--amb);font-weight:700}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;padding:8px 14px;border-radius:4px;color:var(--sub);cursor:pointer;font-weight:600}
+nav button.ativo{background:var(--card2);color:var(--tx);box-shadow:inset 0 -3px 0 var(--amb)}
+.dir{margin-left:auto;display:flex;gap:10px;align-items:center}
+main{max-width:1240px;margin:0 auto;padding:22px 24px 260px}
+h1{font-size:24px;margin:4px 0 16px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:2px;color:var(--sub);margin:26px 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px}
+.btn{background:var(--card2);border:1px solid var(--line);border-radius:4px;padding:9px 16px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--amb)}
+.btn.pri{background:var(--amb);color:#161310;border-color:var(--amb)}
+.btn.perigo{color:var(--err);border-color:var(--err);background:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.peq{padding:5px 10px;font-size:13px}
+.linha{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grade{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+@media(max-width:900px){.grade{grid-template-columns:1fr}}
+.lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.vcard{cursor:pointer;padding:0;overflow:hidden}
+.vcard:hover{border-color:var(--amb)}
+.vcard .capa{aspect-ratio:16/9;background:#0d0b09 center/cover;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:13px}
+.vcard .info{padding:12px 14px}
+.estado{display:inline-block;padding:2px 9px;border-radius:3px;font-size:12px;font-weight:700;font-family:var(--mono)}
+.e-aprovado{background:var(--ok);color:#161310}.e-reprovado{background:var(--err);color:#161310}.e-pendente{background:var(--line)}.e-enviado{background:var(--amb);color:#161310}
+video{width:100%;border-radius:4px;background:#000;display:block}
+.short video{max-height:460px;width:auto;margin:auto}
+.vazio{color:var(--sub);padding:40px 10px;text-align:center}
+table{width:100%;border-collapse:collapse}
+td,th{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:1px}
+.nota{font-family:var(--mono);font-weight:700}
+.n-ok{color:var(--ok)}.n-meh{color:var(--amb)}.n-ruim{color:var(--err)}
+audio{height:34px;width:230px;max-width:100%}
+.ouvido{color:var(--sub);font-size:13px;margin-top:4px}
+.chk{list-style:none;padding:0;margin:0}
+.chk li{padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
+.chk small{color:var(--sub);display:block}
+.ok::before{content:"✓";color:var(--ok);font-weight:700}.aviso::before{content:"!";color:var(--amb);font-weight:700}.erro::before{content:"✗";color:var(--err);font-weight:700}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.thumbs label{cursor:pointer;position:relative}
+.thumbs input{position:absolute;opacity:0}
+.thumbs img{width:100%;display:block;border-radius:4px;border:3px solid transparent}
+.thumbs input:checked+img{border-color:var(--amb)}
+input[type=text],textarea,select,input[type=datetime-local]{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:9px}
+textarea{min-height:220px;font-family:var(--mono);font-size:13px}
+.campo{margin-bottom:10px}
+.campo label{display:block;font-size:13px;color:var(--sub);margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--amb)}
+.rot{display:flex;justify-content:space-between;font-size:13px;color:var(--sub)}
+.dica{color:var(--sub);font-size:13px}
+.perfil{display:flex;flex-direction:column;gap:8px}
+.perfis{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+/* log */
+#log{position:fixed;left:0;right:0;bottom:0;background:#0f0d0a;border-top:2px solid var(--amb);transition:height .2s;height:46px;z-index:10}
+#log.aberto{height:300px}
+#log .topo{display:flex;align-items:center;gap:12px;padding:8px 18px;cursor:pointer;height:44px}
+#log .topo b{font-family:var(--mono)}
+#log pre{margin:0;padding:6px 18px 18px;height:250px;overflow:auto;font-family:var(--mono);font-size:12.5px;color:#d9d0c2;white-space:pre-wrap}
+.gira{display:inline-block;width:14px;height:14px;border:2px solid var(--amb);border-right-color:transparent;border-radius:50%;animation:g 0.8s linear infinite}
+@keyframes g{to{transform:rotate(360deg)}}
+.aviso-topo{background:#3a2a12;border:1px solid var(--amb);padding:10px 14px;border-radius:4px;margin-bottom:14px}
+.toast{position:fixed;right:20px;top:20px;background:var(--card2);border:1px solid var(--amb);padding:12px 16px;border-radius:6px;z-index:20;max-width:380px}
+.swatch{display:flex;gap:4px}.swatch span{width:18px;height:18px;border-radius:3px;display:inline-block;border:1px solid #6e6354}
+.estilos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:700px){.estilos{grid-template-columns:repeat(2,1fr)}}
+.estilo-op{border:2px solid var(--line);border-radius:6px;padding:12px;cursor:pointer;text-align:center}
+.estilo-op.sel{border-color:var(--amb)}
+</style>
+</head>
+<body>
+<div class="faixa"></div>
+<header>
+  <span class="marca" id="marca">// FÁBRICA</span>
+  <nav id="abas">
+    <button data-aba="videos" class="ativo">🎬 Vídeos</button>
+    <button data-aba="voz">🎙 Voz</button>
+    <button data-aba="pronuncia">🔤 Pronúncia</button>
+    <button data-aba="som">🎨 Visual e som</button>
+  </nav>
+  <div class="dir">
+    <button class="btn peq" onclick="acao('atualizar')" title="Baixa as melhorias mais recentes do GitHub (git pull)">⟳ Atualizar fábrica</button>
+  </div>
+</header>
+<main id="conteudo"></main>
+
+<div id="log">
+  <div class="topo" onclick="document.getElementById('log').classList.toggle('aberto')">
+    <span id="logIcone">•</span><b id="logTitulo">Nenhuma tarefa rodando</b><span class="dica" id="logTempo"></span>
+    <span style="margin-left:auto" class="dica">clique para ver o log ▴</span>
+  </div>
+  <pre id="logTexto"></pre>
+</div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let abaAtual = 'videos', videoAberto = null, ultimaTarefa = {id: 0, rodando: false};
+
+async function api(url, dados) {
+  const r = await fetch(url, dados === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados)});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.erro || ('erro ' + r.status));
+  return j;
+}
+function avisar(msg, ms = 3500) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), ms);
+}
+async function acao(nome, extra = {}) {
+  try {
+    await api('/api/acao', {acao: nome, ...extra});
+    if (nome !== 'abrirPasta') { $('#log').classList.add('aberto'); avisar('Começou: ' + nome + '. Acompanhe o log embaixo.'); }
+    lerTarefa();
+  } catch (e) { avisar(e.message, 5000); }
+}
+
+// ───────── abas
+document.querySelectorAll('#abas button').forEach(b => b.onclick = () => irPara(b.dataset.aba));
+function irPara(aba, slug) {
+  if (!['videos', 'voz', 'pronuncia', 'som'].includes(aba)) aba = 'videos';
+  abaAtual = aba; videoAberto = slug || null;
+  document.querySelectorAll('#abas button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === aba));
+  const tela = ({videos: slug ? telaVideo : telaVideos, voz: telaVoz, pronuncia: telaPronuncia, som: telaSom})[aba];
+  Promise.resolve(tela(slug)).catch(e => { if (slug) irPara('videos'); else avisar(e.message); });
+  try { localStorage.setItem('central-aba', JSON.stringify([aba, slug || null])); } catch (e) {}
+}
+
+// ───────── VÍDEOS
+async function telaVideos() {
+  const vs = await api('/api/videos');
+  const c = $('#conteudo');
+  c.innerHTML = `<h1>Vídeos</h1>
+    <p class="dica">Para criar um vídeo novo, abra a pasta da fábrica no Claude Code e peça: <i>“faz um vídeo sobre DNS”</i>. Ele aparece aqui quando o roteiro estiver pronto.</p>
+    <div class="lista">${vs.map(v => `
+      <div class="card vcard" onclick="irPara('videos','${v.slug}')">
+        <div class="capa" style="${v.thumb ? `background-image:url('${v.thumb}')` : ''}">${v.thumb ? '' : 'ainda sem thumbnail'}</div>
+        <div class="info"><b>${esc(v.titulo)}</b><br>
+          <span class="estado e-${v.estado}">${v.estado.toUpperCase()}</span>
+          <span class="dica">${v.publicarEm && v.estado === 'aprovado' ? ' · ' + v.publicarEm.replace('T', ' ') : (v.temVideo ? '' : ' · ainda não produzido')}</span>
+        </div>
+      </div>`).join('') || '<div class="vazio">Nenhum vídeo ainda.</div>'}</div>`;
+}
+
+function classeNota(n) { return n == null ? '' : n >= 0.9 ? 'n-ok' : n >= 0.86 ? 'n-meh' : 'n-ruim'; }
+
+async function telaVideo(slug) {
+  const v = await api('/api/video/' + slug);
+  const ocupado = ultimaTarefa.rodando;
+  const pub = v.publicacao;
+  $('#conteudo').innerHTML = `
+    <div class="linha" style="margin-bottom:6px"><a href="#" onclick="irPara('videos');return false">← todos os vídeos</a></div>
+    <h1>${esc(v.titulo)} <span class="estado e-${v.estado}">${v.estado.toUpperCase()}</span></h1>
+    ${v.estado === 'reprovado' ? `<div class="aviso-topo">Reprovado: ${esc(v.motivo)}</div>` : ''}
+    ${!v.video ? `<div class="aviso-topo">Este vídeo ainda não foi produzido. Clique em <b>▶ Produzir vídeo completo</b>. Leva de 5 a 15 minutos.</div>` : ''}
+    <div class="linha">
+      <button class="btn pri" ${ocupado ? 'disabled' : ''} onclick="acao('produzir',{slug:'${slug}'})" title="Narração (só o que falta) + vídeo longo + short + thumbnails + kit">▶ Produzir vídeo completo</button>
+      <button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('remixar',{slug:'${slug}'})" title="Só refaz o áudio (música, efeitos, volume) — rápido">🎚 Remixar áudio</button>
+      <button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('longo',{slug:'${slug}'})" title="Renderiza de novo as cenas do vídeo longo">🎞 Refazer vídeo longo</button>
+      <button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('short',{slug:'${slug}'})">📱 Refazer short</button>
+      <button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('thumbs',{slug:'${slug}'})">🖼 Refazer thumbnails</button>
+      <button class="btn" onclick="acao('abrirPasta',{slug:'${slug}'})">📂 Abrir pasta</button>
+    </div>
+
+    <div class="grade" style="margin-top:18px">
+      <div class="card">${v.video ? `<video controls preload="metadata" src="${v.video}"></video>` : '<div class="vazio">Vídeo longo ainda não gerado</div>'}</div>
+      <div class="card short">${v.short ? `<video controls preload="metadata" src="${v.short}"></video>` : '<div class="vazio">Short ainda não gerado</div>'}</div>
+    </div>
+
+    <h2>Narração bloco a bloco</h2>
+    <div class="card">
+      <p class="dica" style="margin-top:0">Ouça cada bloco. Se algum soou estranho, marque e clique em <b>Refazer marcados</b>: a voz gera de novo só esses. Palavra sempre errada? Ajuste na aba <b>Pronúncia</b>.</p>
+      <table><tr><th></th><th>Bloco</th><th>Ouvir</th><th>O que o roteiro diz · o que o Whisper ouviu</th><th>Nota</th></tr>
+      ${v.blocos.map(b => `<tr>
+        <td><input type="checkbox" class="marcaBloco" value="${b.id}"></td>
+        <td class="nota">${b.id}<br><span class="dica">${b.cena}</span></td>
+        <td>${b.audio ? `<audio controls preload="none" src="${b.audio}"></audio>` : '<span class="dica">sem áudio</span>'}</td>
+        <td>${esc(b.narracao)}${b.ouvido ? `<div class="ouvido">ouviu: “${esc(b.ouvido)}”</div>` : ''}</td>
+        <td class="nota ${classeNota(b.nota)}">${b.nota == null ? '—' : Math.round(b.nota * 100) + '%'}</td>
+      </tr>`).join('')}
+      </table>
+      <div class="linha" style="margin-top:12px">
+        <button class="btn" ${ocupado ? 'disabled' : ''} onclick="refazerMarcados('${slug}')">🎙 Refazer marcados</button>
+        <button class="btn perigo" ${ocupado ? 'disabled' : ''} onclick="if(confirm('Gerar a narração inteira de novo?'))acao('refazerTudo',{slug:'${slug}'})">Refazer toda a narração</button>
+        <span class="dica">Depois de refazer, clique em ▶ Produzir para atualizar o vídeo.</span>
+      </div>
+    </div>
+
+    <h2>Thumbnail</h2>
+    <div class="thumbs">${v.thumbs.map((t, i) => t ? `<label><input type="radio" name="thumb" value="${i + 1}" ${pub.thumb === i + 1 ? 'checked' : ''}><img src="${t}"></label>` : '<div class="card vazio">—</div>').join('')}</div>
+
+    <div class="grade" style="margin-top:6px">
+      <div>
+        <h2>Título</h2>
+        <select id="titulo">${pub.titulos.map(t => `<option ${t === pub.titulo ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        <input type="text" id="tituloLivre" placeholder="…ou escreva outro título" style="margin-top:8px">
+        <h2>Descrição</h2><textarea id="descricao">${esc(pub.descricao)}</textarea>
+        <h2>Tags</h2><input type="text" id="tags" value="${esc(pub.tags.join(', '))}">
+        <h2>Comentário fixado</h2><input type="text" id="comentario" value="${esc(pub.comentarioFixado)}">
+      </div>
+      <div>
+        <h2>Checagens</h2>
+        <div class="card"><ul class="chk">${v.checagens.map(c => `<li class="${c.nivel}"><div>${esc(c.titulo)}<small>${esc(c.detalhe)}</small></div></li>`).join('')}</ul></div>
+        <h2>Publicar em</h2>
+        <input type="datetime-local" id="quando" value="${pub.publicarEm}">
+        <p class="dica">Vai como PRIVADO, agendado para essa data.</p>
+        <div class="linha">
+          <button class="btn pri" onclick="decidir('${slug}','aprovado')">✓ Aprovar</button>
+          <button class="btn perigo" onclick="decidir('${slug}','reprovado')">Reprovar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function refazerMarcados(slug) {
+  const ids = [...document.querySelectorAll('.marcaBloco:checked')].map(x => x.value);
+  if (!ids.length) return avisar('Marque pelo menos um bloco.');
+  acao('refazer', {slug, blocos: ids});
+}
+
+async function decidir(slug, estado) {
+  let motivo = '';
+  if (estado === 'reprovado') { motivo = prompt('O que precisa mudar?'); if (motivo === null) return; }
+  const livre = $('#tituloLivre').value.trim();
+  const corpo = {estado, motivo,
+    titulo: livre || $('#titulo').value,
+    descricao: $('#descricao').value,
+    tags: $('#tags').value.split(',').map(s => s.trim()).filter(Boolean),
+    comentarioFixado: $('#comentario').value,
+    thumb: Number((document.querySelector('input[name=thumb]:checked') || {value: 1}).value),
+    publicarEm: $('#quando').value};
+  if (corpo.titulo.length > 100) return avisar('Título com mais de 100 caracteres.');
+  try { await api('/api/decisao/' + slug, corpo); avisar(estado === 'aprovado' ? '✓ Aprovado!' : 'Reprovado — motivo salvo.'); telaVideo(slug); }
+  catch (e) { avisar(e.message, 6000); }
+}
+
+// ───────── VOZ
+async function telaVoz() {
+  const d = await api('/api/voz');
+  const c = d.config, ocupado = ultimaTarefa.rodando;
+  const barra = (k, rotulo, esq, dir, min = 0, max = 1) => `
+    <div class="campo"><label>${rotulo}: <b id="v-${k}">${c[k] ?? ''}</b></label>
+    <input type="range" min="${min}" max="${max}" step="0.05" value="${c[k] ?? 0.5}" oninput="$('#v-${k}').textContent=this.value" data-k="${k}">
+    <div class="rot"><span>${esq}</span><span>${dir}</span></div></div>`;
+  $('#conteudo').innerHTML = `<h1>Voz</h1>
+    <div class="grade">
+      <div>
+        <h2>1. Compare perfis de voz</h2>
+        <div class="card">
+          <div class="campo"><label>Frase para comparar</label><input type="text" id="fraseComparar" value="Sabe aquela câmera barata que você colocou na sua rede? Ela está no mesmo lugar que o seu computador do trabalho!"></div>
+          <button class="btn pri" ${ocupado ? 'disabled' : ''} onclick="acao('comparar',{frase:$('#fraseComparar').value})">🎙 Gerar os 4 perfis</button>
+          <span class="dica"> leva ~1 minuto</span>
+          <div class="perfis" style="margin-top:14px">${d.comparar.map(p => `
+            <div class="card perfil" style="background:var(--card2)"><b>${esc(p.nome)}</b>
+              <audio controls preload="none" src="${p.url}"></audio>
+              <span class="dica">expr. ${p.perfil.expressividade ?? '?'} · cfg ${p.perfil.cfgPeso ?? '?'} · temp ${p.perfil.temperatura ?? '?'}</span>
+              <button class="btn peq" onclick='usarPerfil(${JSON.stringify(p.perfil)})'>Usar este</button></div>`).join('') || '<span class="dica">Ainda não gerado.</span>'}
+          </div>
+        </div>
+        <h2>2. Teste uma frase qualquer</h2>
+        <div class="card">
+          <div class="campo"><input type="text" id="fraseTeste" placeholder="Digite uma frase com as palavras que você quer ouvir"></div>
+          <div class="linha"><button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('testarVoz',{frase:$('#fraseTeste').value})">▶ Gerar e ouvir</button>
+          ${d.teste ? `<audio controls preload="none" src="${d.teste}"></audio>` : ''}</div>
+        </div>
+      </div>
+      <div>
+        <h2>Ajuste fino (padrão do canal)</h2>
+        <div class="card">
+          ${barra('expressividade', 'Expressividade', 'contida', 'animada')}
+          ${barra('cfgPeso', 'Ritmo (cfg)', 'mais solto/lento', 'mais preso/rápido')}
+          ${barra('temperatura', 'Variação', 'previsível', 'variada', 0.3, 1)}
+          <button class="btn pri" onclick="salvarVoz()">Salvar ajuste</button>
+          <p class="dica">Vale para os próximos blocos gerados. Para aplicar num vídeo pronto, use “Refazer toda a narração” na tela do vídeo.</p>
+        </div>
+        <h2>Sua amostra</h2>
+        <div class="card">${d.amostra ? `<audio controls preload="none" src="${d.amostra}" style="width:100%"></audio>` : 'Sem amostra em canal\\voz\\amostra.wav'}
+          <p class="dica">A voz copia o jeito da amostra. Uma amostra mais animada (15–20 s, explicando algo como para um amigo) deixa tudo mais natural. Salve como <code>canal\\voz\\amostra.wav</code>.</p></div>
+      </div>
+    </div>`;
+}
+async function usarPerfil(p) { await api('/api/config', {voz: p}); avisar('Perfil salvo como padrão do canal.'); telaVoz(); }
+async function salvarVoz() {
+  const voz = {}; document.querySelectorAll('input[type=range][data-k]').forEach(r => voz[r.dataset.k] = Number(r.value));
+  await api('/api/config', {voz}); avisar('Ajuste de voz salvo.');
+}
+
+// ───────── PRONÚNCIA
+async function telaPronuncia() {
+  const d = await api('/api/pronuncia');
+  const linhas = Object.entries(d).filter(([k]) => !k.startsWith('_'));
+  $('#conteudo').innerHTML = `<h1>Pronúncia</h1>
+    <p class="dica">À esquerda, como o termo aparece no roteiro e na legenda. À direita, como a voz deve <b>falar</b>, escrito do jeito que se lê em português. Maiúsculas importam.</p>
+    <div class="card"><table id="tabPron"><tr><th>No roteiro</th><th>Como falar</th><th></th></tr>
+      ${linhas.map(([k, v]) => linhaPron(k, v)).join('')}
+    </table>
+    <div class="linha" style="margin-top:12px">
+      <button class="btn" onclick="$('#tabPron').insertAdjacentHTML('beforeend', linhaPron('',''))">+ Adicionar termo</button>
+      <button class="btn pri" onclick="salvarPron()">Salvar</button>
+    </div></div>`;
+}
+function linhaPron(k, v) {
+  return `<tr><td><input type="text" class="pk" value="${esc(k)}"></td><td><input type="text" class="pv" value="${esc(v)}"></td>
+    <td class="linha"><button class="btn peq" onclick="ouvirPron(this)" title="Gera uma frase com esse termo">▶ Ouvir</button>
+    <button class="btn peq perigo" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+}
+async function salvarPron() {
+  const d = {}; document.querySelectorAll('#tabPron tr').forEach(tr => { const k = $('.pk', tr), v = $('.pv', tr); if (k && k.value.trim() && v.value.trim()) d[k.value.trim()] = v.value.trim(); });
+  await api('/api/pronuncia', d); avisar('Pronúncia salva.');
+}
+async function ouvirPron(btn) {
+  await salvarPron();
+  const termo = $('.pk', btn.closest('tr')).value.trim();
+  await acao('testarVoz', {frase: `Hoje a gente vai falar de ${termo}. ${termo} é importante.`});
+  avisar('Gerando… quando terminar, ouça na aba Voz → “Teste uma frase”.', 5000);
+}
+
+// ───────── VISUAL E SOM
+const CORES = {neon: ['#0a1018', '#3ee6a8', '#5aa9ff'], bancada: ['#161310', '#ffae42', '#7fc8c2'], caderno: ['#f5f0e4', '#ffd93b', '#2f5bd3'], revista: ['#f7f4ee', '#ff4d2e', '#111111']};
+async function telaSom() {
+  const d = await api('/api/som');
+  const a = d.audio;
+  $('#conteudo').innerHTML = `<h1>Visual e som</h1>
+    <h2>Nome do canal</h2>
+    <div class="card linha"><input type="text" id="nomeCanal" value="${esc(d.nomeCanal)}" style="max-width:320px"><button class="btn" onclick="salvarSom({nomeCanal:$('#nomeCanal').value})">Salvar</button></div>
+    <h2>Estilo visual</h2>
+    <div class="estilos">${d.estilos.map(e => `<div class="estilo-op ${e === d.estilo ? 'sel' : ''}" onclick="salvarSom({estilo:'${e}'}).then(telaSom)">
+      <div class="swatch" style="justify-content:center">${(CORES[e] || []).map(c => `<span style="background:${c}"></span>`).join('')}</div><b>${e}</b></div>`).join('')}</div>
+    <p class="dica">Vale para os próximos vídeos renderizados.</p>
+    <div class="grade">
+      <div>
+        <h2>Música de fundo</h2>
+        <div class="card">
+          <div class="campo"><label>Qual trilha usar</label>
+            <select id="trilha" onchange="salvarSom({audio:{trilha:this.value}})">
+              <option value="auto" ${a.trilha === 'auto' ? 'selected' : ''}>Automática (uma das minhas; se não tiver, a padrão)</option>
+              <option value="nenhuma" ${a.trilha === 'nenhuma' ? 'selected' : ''}>Sem música</option>
+              ${d.trilhas.map(t => `<option value="${esc(t.nome)}" ${a.trilha === t.nome ? 'selected' : ''}>${esc(t.nome)}</option>`).join('')}
+            </select></div>
+          <table>
+            <tr><td>Trilha padrão do canal</td><td><audio controls preload="none" src="${d.trilhaPadrao}"></audio></td></tr>
+            ${d.trilhas.map(t => `<tr><td>${esc(t.nome)}</td><td><audio controls preload="none" src="${t.url}"></audio></td></tr>`).join('')}
+          </table>
+          <div class="campo" style="margin-top:12px"><label>Adicionar música (.mp3, .wav, .m4a)</label><input type="file" id="arqTrilha" accept=".mp3,.wav,.m4a,.ogg" onchange="enviarTrilha(this)"></div>
+          <p class="dica">Músicas grátis e liberadas para monetizar: YouTube Studio → <b>Biblioteca de áudio</b>.</p>
+        </div>
+      </div>
+      <div>
+        <h2>Volumes</h2>
+        <div class="card">
+          <div class="campo"><label>Música: <b id="vm">${a.volumeMusica}</b></label><input type="range" min="0" max="0.5" step="0.01" value="${a.volumeMusica}" oninput="$('#vm').textContent=this.value" onchange="salvarSom({audio:{volumeMusica:+this.value}})"></div>
+          <div class="campo"><label>Efeitos sonoros: <b id="ve">${a.volumeEfeitos}</b></label><input type="range" min="0" max="1" step="0.05" value="${a.volumeEfeitos}" oninput="$('#ve').textContent=this.value" onchange="salvarSom({audio:{volumeEfeitos:+this.value}})"></div>
+          <p class="dica">Mudou a música ou o volume da música? Na tela do vídeo, clique em <b>🎚 Remixar áudio</b> (rápido). Mudou o volume dos efeitos? Use <b>▶ Produzir</b> (os efeitos entram na renderização).</p>
+        </div>
+      </div>
+    </div>`;
+}
+async function salvarSom(d) { await api('/api/config', d); avisar('Salvo.'); }
+async function enviarTrilha(inp) {
+  const f = inp.files[0]; if (!f) return;
+  avisar('Enviando ' + f.name + '…');
+  const r = await fetch('/api/trilha?nome=' + encodeURIComponent(f.name), {method: 'POST', body: f});
+  if (r.ok) { avisar('Música adicionada.'); telaSom(); } else avisar((await r.json()).erro || 'falhou');
+}
+
+// ───────── log da tarefa
+async function lerTarefa() {
+  try {
+    const t = await api('/api/tarefa');
+    const pre = $('#logTexto'), noFim = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+    pre.textContent = t.log.join('\n');
+    if (noFim) pre.scrollTop = pre.scrollHeight;
+    $('#logTitulo').textContent = t.titulo ? (t.rodando ? 'Rodando: ' : t.ok ? 'Concluído: ' : 'Erro: ') + t.titulo : 'Nenhuma tarefa rodando';
+    $('#logIcone').innerHTML = t.rodando ? '<span class="gira"></span>' : t.ok === false ? '<span style="color:var(--err)">✗</span>' : t.ok ? '<span style="color:var(--ok)">✓</span>' : '•';
+    $('#logTempo').textContent = t.titulo ? `${Math.floor(t.segundos / 60)}min ${t.segundos % 60}s` : '';
+    const terminou = ultimaTarefa.rodando && !t.rodando;
+    const mudou = t.rodando !== ultimaTarefa.rodando || t.id !== ultimaTarefa.id;
+    ultimaTarefa = t;
+    if (terminou) { avisar(t.ok ? '✓ ' + t.titulo + ' — pronto!' : '✗ ' + t.titulo + ' — deu erro, veja o log', 6000); irPara(abaAtual, videoAberto); }
+    else if (mudou && !t.rodando) irPara(abaAtual, videoAberto);
+    else if (mudou) document.querySelectorAll('main button.btn').forEach(b => { if (!/Abrir pasta|Salvar|Adicionar|Usar|Aprovar|Reprovar|✕/.test(b.textContent)) b.disabled = true; });
+  } catch (e) {}
+}
+setInterval(lerTarefa, 1500);
+
+(async () => {
+  try {
+    const s = await api('/api/som');
+    $('#marca').textContent = '// ' + (s.nomeCanal || 'FÁBRICA').toUpperCase();
+  } catch (e) {}
+  let ini = ['videos', null];
+  try { ini = JSON.parse(localStorage.getItem('central-aba')) || ini; } catch (e) {}
+  await lerTarefa();
+  irPara(ini[0], ini[1]);
+})();
+</script>
+</body>
+</html>

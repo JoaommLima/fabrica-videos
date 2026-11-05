@@ -143,29 +143,83 @@ def preparar(pasta: Path) -> Path:
 _navegador_ok = False
 
 
+def _versao_chrome_remotion() -> str:
+    js = ENGINE / "node_modules" / "@remotion" / "renderer" / "dist" / "browser" / "BrowserFetcher.js"
+    m = re.search(r"TESTED_VERSION = '([\d.]+)'", js.read_text(encoding="utf-8")) if js.exists() else None
+    return m.group(1) if m else "133.0.6943.0"
+
+
 def garantir_navegador() -> None:
-    """O Remotion desenha as cenas num Chrome "headless" que ele baixa em engine/node_modules/.remotion.
-    Se a pasta existe mas o .exe sumiu (antivírus costuma apagar), ele não baixa de novo e falha
-    com "No browser found". Aqui a gente detecta, limpa e baixa outra vez."""
+    """O Remotion desenha as cenas num "Chrome Headless Shell" guardado em engine/node_modules/.remotion.
+    O extrator de zip do próprio Remotion quebra em versões muito novas do Node (ex.: Node 26) e deixa
+    só 2 arquivos extraídos. Aqui a fábrica baixa/extrai com o Python, no mesmo lugar que o Remotion procura."""
     global _navegador_ok
     if _navegador_ok:
         return
-    pasta = ENGINE / "node_modules" / ".remotion"
-    nome = "chrome-headless-shell.exe" if os.name == "nt" else "chrome-headless-shell"
-    tem_exe = lambda: pasta.exists() and any(p.is_file() for p in pasta.rglob(nome))
-    if pasta.exists() and not tem_exe():
-        print("⚠ navegador do Remotion incompleto (o antivírus pode ter apagado) — baixando de novo…")
-        shutil.rmtree(pasta, ignore_errors=True)
-    if not tem_exe():
+    import urllib.request
+    import zipfile
+
+    plat = "win64" if os.name == "nt" else "linux64"
+    base = ENGINE / "node_modules" / ".remotion" / "chrome-headless-shell"
+    destino = base / plat
+    exe = destino / f"chrome-headless-shell-{plat}" / ("chrome-headless-shell.exe" if os.name == "nt" else "chrome-headless-shell")
+    if exe.is_file():
+        _navegador_ok = True
+        return
+
+    arquivo_zip = base / f"chrome-headless-shell-{plat}.zip"
+    base.mkdir(parents=True, exist_ok=True)
+
+    def extrair() -> bool:
+        try:
+            shutil.rmtree(destino, ignore_errors=True)
+            with zipfile.ZipFile(arquivo_zip) as z:
+                z.extractall(destino)
+            if os.name != "nt":
+                exe.chmod(0o755)
+            return exe.is_file()
+        except zipfile.BadZipFile:
+            print("⚠ zip do navegador corrompido — baixando de novo…")
+            arquivo_zip.unlink(missing_ok=True)
+            return False
+
+    if arquivo_zip.exists():
+        print("▶ extraindo o navegador do Remotion…")
+        if extrair():
+            arquivo_zip.unlink(missing_ok=True)
+            _navegador_ok = True
+            return
+
+    url = f"https://storage.googleapis.com/chrome-for-testing-public/{_versao_chrome_remotion()}/{plat}/chrome-headless-shell-{plat}.zip"
+    print(f"▶ baixando o navegador do Remotion (~100 MB)…\n  {url}")
+    try:
+        tmp = arquivo_zip.with_suffix(".parcial")
+        with urllib.request.urlopen(url, timeout=60) as r, open(tmp, "wb") as f:
+            total = int(r.headers.get("Content-Length") or 0)
+            feito = 0
+            while bloco := r.read(1 << 20):
+                f.write(bloco)
+                feito += len(bloco)
+                if total:
+                    print(f"\r  {feito * 100 // total}%", end="", flush=True)
+        print()
+        tmp.replace(arquivo_zip)
+        if extrair():
+            arquivo_zip.unlink(missing_ok=True)
+            _navegador_ok = True
+            return
+    except Exception as e:  # sem acesso direto: tenta o download do próprio Remotion
+        print(f"⚠ download direto falhou ({e}); tentando pelo Remotion…")
         npx = "npx.cmd" if os.name == "nt" else "npx"
         subprocess.run([npx, "remotion", "browser", "ensure"], cwd=ENGINE, check=False)
-    if not tem_exe():
-        sys.exit(
-            "✗ Não consegui deixar o navegador do Remotion pronto.\n"
-            "  Provável causa: o Windows Defender apagou o chrome-headless-shell.exe.\n"
-            f"  Adicione esta pasta às exclusões do Defender e rode de novo:\n  {pasta}"
-        )
-    _navegador_ok = True
+        if exe.is_file() or (arquivo_zip.exists() and extrair()):
+            _navegador_ok = True
+            return
+
+    sys.exit(
+        "✗ Não consegui deixar o navegador do Remotion pronto.\n"
+        f"  Confira a internet e se o antivírus não está bloqueando a pasta:\n  {base}"
+    )
 
 
 # ───────────────────────── renderizar ─────────────────────────

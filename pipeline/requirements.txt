@@ -1,0 +1,2 @@
+# Etapa atual (montagem) só usa a biblioteca padrão + ffmpeg + Node.
+# As próximas etapas (voz clonada, checagem de pronúncia, upload) entram aqui.

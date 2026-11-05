@@ -1,0 +1,1251 @@
+{
+  "titulo": "VLAN explicada: uma rede física, várias redes separadas",
+  "tema": {
+    "nomeCanal": "JM Lab",
+    "corFundo": "#0a1018",
+    "corFundo2": "#132033",
+    "corTexto": "#eef3f8",
+    "corSuave": "#8fa3b8",
+    "corDestaque": "#3ee6a8",
+    "corDestaque2": "#5aa9ff",
+    "corPerigo": "#ff6b6b",
+    "fonteTexto": "Inter",
+    "fonteCodigo": "JetBrains Mono"
+  },
+  "blocos": [
+    {
+      "id": "b01",
+      "narracao": "Sabe aquela câmera barata que você colocou na sua rede? Ela está no mesmo lugar que o seu computador do trabalho.",
+      "cena": {
+        "tipo": "abertura",
+        "selo": "REDES • EP. 01",
+        "titulo": "Uma rede. Várias redes.",
+        "subtitulo": "O que é VLAN e por que o seu homelab precisa de uma"
+      },
+      "inicioAudio": 0.0,
+      "duracao": 8.527
+    },
+    {
+      "id": "b02",
+      "narracao": "Numa rede doméstica comum, tudo conversa com tudo: o PC, o celular, a TV e aquela câmera. Se um aparelho for invadido, o caminho até os outros está livre.",
+      "cena": {
+        "tipo": "diagrama",
+        "titulo": "A rede de casa típica",
+        "nos": [
+          {
+            "id": "net",
+            "rotulo": "Internet",
+            "icone": "internet",
+            "x": 5,
+            "y": 50
+          },
+          {
+            "id": "rt",
+            "rotulo": "Roteador",
+            "icone": "roteador",
+            "x": 30,
+            "y": 50
+          },
+          {
+            "id": "sw",
+            "rotulo": "Switch",
+            "icone": "switch",
+            "x": 55,
+            "y": 50
+          },
+          {
+            "id": "pc",
+            "rotulo": "PC",
+            "icone": "pc",
+            "x": 85,
+            "y": 8
+          },
+          {
+            "id": "cel",
+            "rotulo": "Celular",
+            "icone": "celular",
+            "x": 85,
+            "y": 50
+          },
+          {
+            "id": "cam",
+            "rotulo": "Câmera",
+            "icone": "wifi",
+            "x": 85,
+            "y": 92
+          }
+        ],
+        "ligacoes": [
+          [
+            "net",
+            "rt"
+          ],
+          [
+            "rt",
+            "sw"
+          ],
+          [
+            "sw",
+            "pc"
+          ],
+          [
+            "sw",
+            "cel"
+          ],
+          [
+            "sw",
+            "cam"
+          ]
+        ],
+        "pacote": [
+          "cam",
+          "sw",
+          "pc"
+        ]
+      },
+      "inicioAudio": 8.527,
+      "duracao": 11.604
+    },
+    {
+      "id": "b03",
+      "narracao": "A VLAN resolve isso. Com o mesmo switch e os mesmos cabos, você cria redes virtuais separadas. Cada grupo de aparelhos só enxerga quem está no próprio grupo.",
+      "cena": {
+        "tipo": "diagrama",
+        "titulo": "Com VLANs",
+        "grupos": {
+          "v10": "VLAN 10 · Trabalho",
+          "v20": "VLAN 20 · Pessoal",
+          "v30": "VLAN 30 · IoT"
+        },
+        "nos": [
+          {
+            "id": "rt",
+            "rotulo": "Roteador",
+            "icone": "roteador",
+            "x": 12,
+            "y": 50
+          },
+          {
+            "id": "sw",
+            "rotulo": "Switch gerenciável",
+            "icone": "switch",
+            "x": 45,
+            "y": 50
+          },
+          {
+            "id": "pc",
+            "rotulo": "PC",
+            "icone": "pc",
+            "x": 80,
+            "y": 8,
+            "grupo": "v10"
+          },
+          {
+            "id": "cel",
+            "rotulo": "Celular",
+            "icone": "celular",
+            "x": 80,
+            "y": 50,
+            "grupo": "v20"
+          },
+          {
+            "id": "cam",
+            "rotulo": "Câmera",
+            "icone": "wifi",
+            "x": 80,
+            "y": 92,
+            "grupo": "v30"
+          }
+        ],
+        "ligacoes": [
+          [
+            "rt",
+            "sw"
+          ],
+          [
+            "sw",
+            "pc"
+          ],
+          [
+            "sw",
+            "cel"
+          ],
+          [
+            "sw",
+            "cam"
+          ]
+        ]
+      },
+      "inicioAudio": 20.131,
+      "duracao": 11.219
+    },
+    {
+      "id": "b04",
+      "narracao": "O segredo é uma etiqueta. Cada pacote que passa pelo cabo ganha um número, o VLAN ID, definido no padrão IEEE 802.1Q. São doze bits, o que dá até 4094 redes possíveis.",
+      "cena": {
+        "tipo": "numero",
+        "valor": 4094,
+        "legenda": "VLANs possíveis com os 12 bits do padrão 802.1Q"
+      },
+      "inicioAudio": 31.35,
+      "duracao": 12.758
+    },
+    {
+      "id": "b05",
+      "narracao": "E aqui entram dois tipos de porta. A porta de acesso pertence a uma VLAN só. A porta tronco carrega várias VLANs ao mesmo tempo, com as etiquetas.",
+      "cena": {
+        "tipo": "comparacao",
+        "titulo": "Acesso × Tronco",
+        "esquerda": {
+          "titulo": "Porta de acesso",
+          "itens": [
+            "Uma VLAN só",
+            "Pacote sai sem etiqueta",
+            "Vai para o aparelho final"
+          ]
+        },
+        "direita": {
+          "titulo": "Porta tronco",
+          "itens": [
+            "Várias VLANs juntas",
+            "Pacotes com etiqueta 802.1Q",
+            "Liga switch, roteador e AP"
+          ]
+        }
+      },
+      "inicioAudio": 44.108,
+      "duracao": 11.219
+    },
+    {
+      "id": "b06",
+      "narracao": "No MikroTik, criar uma VLAN é questão de poucas linhas. Primeiro a interface, depois um endereço para ela.",
+      "cena": {
+        "tipo": "terminal",
+        "titulo": "Na prática: RouterOS",
+        "linhas": [
+          {
+            "cmd": "/interface vlan add name=vlan30-iot vlan-id=30 interface=bridge"
+          },
+          {
+            "cmd": "/ip address add address=10.30.0.1/24 interface=vlan30-iot"
+          },
+          {
+            "cmd": "/interface vlan print",
+            "saida": " #  NAME        MTU  VLAN-ID  INTERFACE\n 0  vlan30-iot  1500      30  bridge"
+          }
+        ]
+      },
+      "inicioAudio": 55.327,
+      "duracao": 7.373
+    },
+    {
+      "id": "b07",
+      "narracao": "Resumindo: separe por confiança. Trabalho de um lado, pessoal do outro, e os aparelhos de internet das coisas isolados, sem acesso ao resto.",
+      "cena": {
+        "tipo": "lista",
+        "titulo": "Regra de ouro",
+        "itens": [
+          "Separe por nível de confiança",
+          "IoT sempre isolado",
+          "Firewall decide quem fala com quem"
+        ]
+      },
+      "inicioAudio": 62.7,
+      "duracao": 9.296
+    },
+    {
+      "id": "b08",
+      "narracao": "No próximo vídeo, eu monto essas VLANs de verdade no meu homelab. Se inscreve para não perder.",
+      "cena": {
+        "tipo": "encerramento",
+        "titulo": "Próximo episódio",
+        "texto": "Montando as VLANs no homelab, passo a passo"
+      },
+      "inicioAudio": 71.996,
+      "duracao": 6.988
+    }
+  ],
+  "mostrarLegenda": true,
+  "legendas": [
+    {
+      "texto": "Sabe",
+      "inicio": 0.0,
+      "fim": 0.385
+    },
+    {
+      "texto": "aquela",
+      "inicio": 0.385,
+      "fim": 0.769
+    },
+    {
+      "texto": "câmera",
+      "inicio": 0.769,
+      "fim": 1.154
+    },
+    {
+      "texto": "barata",
+      "inicio": 1.154,
+      "fim": 1.538
+    },
+    {
+      "texto": "que",
+      "inicio": 1.538,
+      "fim": 1.923
+    },
+    {
+      "texto": "você",
+      "inicio": 1.923,
+      "fim": 2.308
+    },
+    {
+      "texto": "colocou",
+      "inicio": 2.308,
+      "fim": 2.692
+    },
+    {
+      "texto": "na",
+      "inicio": 2.692,
+      "fim": 3.077
+    },
+    {
+      "texto": "sua",
+      "inicio": 3.077,
+      "fim": 3.462
+    },
+    {
+      "texto": "rede?",
+      "inicio": 3.462,
+      "fim": 3.846
+    },
+    {
+      "texto": "Ela",
+      "inicio": 3.846,
+      "fim": 4.231
+    },
+    {
+      "texto": "está",
+      "inicio": 4.231,
+      "fim": 4.615
+    },
+    {
+      "texto": "no",
+      "inicio": 4.615,
+      "fim": 5.0
+    },
+    {
+      "texto": "mesmo",
+      "inicio": 5.0,
+      "fim": 5.385
+    },
+    {
+      "texto": "lugar",
+      "inicio": 5.385,
+      "fim": 5.769
+    },
+    {
+      "texto": "que",
+      "inicio": 5.769,
+      "fim": 6.154
+    },
+    {
+      "texto": "o",
+      "inicio": 6.154,
+      "fim": 6.538
+    },
+    {
+      "texto": "seu",
+      "inicio": 6.538,
+      "fim": 6.923
+    },
+    {
+      "texto": "computador",
+      "inicio": 6.923,
+      "fim": 7.308
+    },
+    {
+      "texto": "do",
+      "inicio": 7.308,
+      "fim": 7.692
+    },
+    {
+      "texto": "trabalho.",
+      "inicio": 7.692,
+      "fim": 8.077
+    },
+    {
+      "texto": "Numa",
+      "inicio": 8.527,
+      "fim": 8.912
+    },
+    {
+      "texto": "rede",
+      "inicio": 8.912,
+      "fim": 9.296
+    },
+    {
+      "texto": "doméstica",
+      "inicio": 9.296,
+      "fim": 9.681
+    },
+    {
+      "texto": "comum,",
+      "inicio": 9.681,
+      "fim": 10.065
+    },
+    {
+      "texto": "tudo",
+      "inicio": 10.065,
+      "fim": 10.45
+    },
+    {
+      "texto": "conversa",
+      "inicio": 10.45,
+      "fim": 10.835
+    },
+    {
+      "texto": "com",
+      "inicio": 10.835,
+      "fim": 11.219
+    },
+    {
+      "texto": "tudo:",
+      "inicio": 11.219,
+      "fim": 11.604
+    },
+    {
+      "texto": "o",
+      "inicio": 11.604,
+      "fim": 11.989
+    },
+    {
+      "texto": "PC,",
+      "inicio": 11.989,
+      "fim": 12.373
+    },
+    {
+      "texto": "o",
+      "inicio": 12.373,
+      "fim": 12.758
+    },
+    {
+      "texto": "celular,",
+      "inicio": 12.758,
+      "fim": 13.142
+    },
+    {
+      "texto": "a",
+      "inicio": 13.142,
+      "fim": 13.527
+    },
+    {
+      "texto": "TV",
+      "inicio": 13.527,
+      "fim": 13.912
+    },
+    {
+      "texto": "e",
+      "inicio": 13.912,
+      "fim": 14.296
+    },
+    {
+      "texto": "aquela",
+      "inicio": 14.296,
+      "fim": 14.681
+    },
+    {
+      "texto": "câmera.",
+      "inicio": 14.681,
+      "fim": 15.065
+    },
+    {
+      "texto": "Se",
+      "inicio": 15.065,
+      "fim": 15.45
+    },
+    {
+      "texto": "um",
+      "inicio": 15.45,
+      "fim": 15.835
+    },
+    {
+      "texto": "aparelho",
+      "inicio": 15.835,
+      "fim": 16.219
+    },
+    {
+      "texto": "for",
+      "inicio": 16.219,
+      "fim": 16.604
+    },
+    {
+      "texto": "invadido,",
+      "inicio": 16.604,
+      "fim": 16.989
+    },
+    {
+      "texto": "o",
+      "inicio": 16.989,
+      "fim": 17.373
+    },
+    {
+      "texto": "caminho",
+      "inicio": 17.373,
+      "fim": 17.758
+    },
+    {
+      "texto": "até",
+      "inicio": 17.758,
+      "fim": 18.142
+    },
+    {
+      "texto": "os",
+      "inicio": 18.142,
+      "fim": 18.527
+    },
+    {
+      "texto": "outros",
+      "inicio": 18.527,
+      "fim": 18.912
+    },
+    {
+      "texto": "está",
+      "inicio": 18.912,
+      "fim": 19.296
+    },
+    {
+      "texto": "livre.",
+      "inicio": 19.296,
+      "fim": 19.681
+    },
+    {
+      "texto": "A",
+      "inicio": 20.131,
+      "fim": 20.516
+    },
+    {
+      "texto": "VLAN",
+      "inicio": 20.516,
+      "fim": 20.9
+    },
+    {
+      "texto": "resolve",
+      "inicio": 20.9,
+      "fim": 21.285
+    },
+    {
+      "texto": "isso.",
+      "inicio": 21.285,
+      "fim": 21.669
+    },
+    {
+      "texto": "Com",
+      "inicio": 21.669,
+      "fim": 22.054
+    },
+    {
+      "texto": "o",
+      "inicio": 22.054,
+      "fim": 22.439
+    },
+    {
+      "texto": "mesmo",
+      "inicio": 22.439,
+      "fim": 22.823
+    },
+    {
+      "texto": "switch",
+      "inicio": 22.823,
+      "fim": 23.208
+    },
+    {
+      "texto": "e",
+      "inicio": 23.208,
+      "fim": 23.593
+    },
+    {
+      "texto": "os",
+      "inicio": 23.593,
+      "fim": 23.977
+    },
+    {
+      "texto": "mesmos",
+      "inicio": 23.977,
+      "fim": 24.362
+    },
+    {
+      "texto": "cabos,",
+      "inicio": 24.362,
+      "fim": 24.746
+    },
+    {
+      "texto": "você",
+      "inicio": 24.746,
+      "fim": 25.131
+    },
+    {
+      "texto": "cria",
+      "inicio": 25.131,
+      "fim": 25.516
+    },
+    {
+      "texto": "redes",
+      "inicio": 25.516,
+      "fim": 25.9
+    },
+    {
+      "texto": "virtuais",
+      "inicio": 25.9,
+      "fim": 26.285
+    },
+    {
+      "texto": "separadas.",
+      "inicio": 26.285,
+      "fim": 26.669
+    },
+    {
+      "texto": "Cada",
+      "inicio": 26.669,
+      "fim": 27.054
+    },
+    {
+      "texto": "grupo",
+      "inicio": 27.054,
+      "fim": 27.439
+    },
+    {
+      "texto": "de",
+      "inicio": 27.439,
+      "fim": 27.823
+    },
+    {
+      "texto": "aparelhos",
+      "inicio": 27.823,
+      "fim": 28.208
+    },
+    {
+      "texto": "só",
+      "inicio": 28.208,
+      "fim": 28.593
+    },
+    {
+      "texto": "enxerga",
+      "inicio": 28.593,
+      "fim": 28.977
+    },
+    {
+      "texto": "quem",
+      "inicio": 28.977,
+      "fim": 29.362
+    },
+    {
+      "texto": "está",
+      "inicio": 29.362,
+      "fim": 29.746
+    },
+    {
+      "texto": "no",
+      "inicio": 29.746,
+      "fim": 30.131
+    },
+    {
+      "texto": "próprio",
+      "inicio": 30.131,
+      "fim": 30.516
+    },
+    {
+      "texto": "grupo.",
+      "inicio": 30.516,
+      "fim": 30.9
+    },
+    {
+      "texto": "O",
+      "inicio": 31.35,
+      "fim": 31.735
+    },
+    {
+      "texto": "segredo",
+      "inicio": 31.735,
+      "fim": 32.119
+    },
+    {
+      "texto": "é",
+      "inicio": 32.119,
+      "fim": 32.504
+    },
+    {
+      "texto": "uma",
+      "inicio": 32.504,
+      "fim": 32.888
+    },
+    {
+      "texto": "etiqueta.",
+      "inicio": 32.888,
+      "fim": 33.273
+    },
+    {
+      "texto": "Cada",
+      "inicio": 33.273,
+      "fim": 33.658
+    },
+    {
+      "texto": "pacote",
+      "inicio": 33.658,
+      "fim": 34.042
+    },
+    {
+      "texto": "que",
+      "inicio": 34.042,
+      "fim": 34.427
+    },
+    {
+      "texto": "passa",
+      "inicio": 34.427,
+      "fim": 34.812
+    },
+    {
+      "texto": "pelo",
+      "inicio": 34.812,
+      "fim": 35.196
+    },
+    {
+      "texto": "cabo",
+      "inicio": 35.196,
+      "fim": 35.581
+    },
+    {
+      "texto": "ganha",
+      "inicio": 35.581,
+      "fim": 35.965
+    },
+    {
+      "texto": "um",
+      "inicio": 35.965,
+      "fim": 36.35
+    },
+    {
+      "texto": "número,",
+      "inicio": 36.35,
+      "fim": 36.735
+    },
+    {
+      "texto": "o",
+      "inicio": 36.735,
+      "fim": 37.119
+    },
+    {
+      "texto": "VLAN",
+      "inicio": 37.119,
+      "fim": 37.504
+    },
+    {
+      "texto": "ID,",
+      "inicio": 37.504,
+      "fim": 37.888
+    },
+    {
+      "texto": "definido",
+      "inicio": 37.888,
+      "fim": 38.273
+    },
+    {
+      "texto": "no",
+      "inicio": 38.273,
+      "fim": 38.658
+    },
+    {
+      "texto": "padrão",
+      "inicio": 38.658,
+      "fim": 39.042
+    },
+    {
+      "texto": "IEEE",
+      "inicio": 39.042,
+      "fim": 39.427
+    },
+    {
+      "texto": "802.1Q.",
+      "inicio": 39.427,
+      "fim": 39.812
+    },
+    {
+      "texto": "São",
+      "inicio": 39.812,
+      "fim": 40.196
+    },
+    {
+      "texto": "doze",
+      "inicio": 40.196,
+      "fim": 40.581
+    },
+    {
+      "texto": "bits,",
+      "inicio": 40.581,
+      "fim": 40.965
+    },
+    {
+      "texto": "o",
+      "inicio": 40.965,
+      "fim": 41.35
+    },
+    {
+      "texto": "que",
+      "inicio": 41.35,
+      "fim": 41.735
+    },
+    {
+      "texto": "dá",
+      "inicio": 41.735,
+      "fim": 42.119
+    },
+    {
+      "texto": "até",
+      "inicio": 42.119,
+      "fim": 42.504
+    },
+    {
+      "texto": "4094",
+      "inicio": 42.504,
+      "fim": 42.888
+    },
+    {
+      "texto": "redes",
+      "inicio": 42.888,
+      "fim": 43.273
+    },
+    {
+      "texto": "possíveis.",
+      "inicio": 43.273,
+      "fim": 43.658
+    },
+    {
+      "texto": "E",
+      "inicio": 44.108,
+      "fim": 44.493
+    },
+    {
+      "texto": "aqui",
+      "inicio": 44.493,
+      "fim": 44.877
+    },
+    {
+      "texto": "entram",
+      "inicio": 44.877,
+      "fim": 45.262
+    },
+    {
+      "texto": "dois",
+      "inicio": 45.262,
+      "fim": 45.646
+    },
+    {
+      "texto": "tipos",
+      "inicio": 45.646,
+      "fim": 46.031
+    },
+    {
+      "texto": "de",
+      "inicio": 46.031,
+      "fim": 46.416
+    },
+    {
+      "texto": "porta.",
+      "inicio": 46.416,
+      "fim": 46.8
+    },
+    {
+      "texto": "A",
+      "inicio": 46.8,
+      "fim": 47.185
+    },
+    {
+      "texto": "porta",
+      "inicio": 47.185,
+      "fim": 47.57
+    },
+    {
+      "texto": "de",
+      "inicio": 47.57,
+      "fim": 47.954
+    },
+    {
+      "texto": "acesso",
+      "inicio": 47.954,
+      "fim": 48.339
+    },
+    {
+      "texto": "pertence",
+      "inicio": 48.339,
+      "fim": 48.723
+    },
+    {
+      "texto": "a",
+      "inicio": 48.723,
+      "fim": 49.108
+    },
+    {
+      "texto": "uma",
+      "inicio": 49.108,
+      "fim": 49.493
+    },
+    {
+      "texto": "VLAN",
+      "inicio": 49.493,
+      "fim": 49.877
+    },
+    {
+      "texto": "só.",
+      "inicio": 49.877,
+      "fim": 50.262
+    },
+    {
+      "texto": "A",
+      "inicio": 50.262,
+      "fim": 50.646
+    },
+    {
+      "texto": "porta",
+      "inicio": 50.646,
+      "fim": 51.031
+    },
+    {
+      "texto": "tronco",
+      "inicio": 51.031,
+      "fim": 51.416
+    },
+    {
+      "texto": "carrega",
+      "inicio": 51.416,
+      "fim": 51.8
+    },
+    {
+      "texto": "várias",
+      "inicio": 51.8,
+      "fim": 52.185
+    },
+    {
+      "texto": "VLANs",
+      "inicio": 52.185,
+      "fim": 52.57
+    },
+    {
+      "texto": "ao",
+      "inicio": 52.57,
+      "fim": 52.954
+    },
+    {
+      "texto": "mesmo",
+      "inicio": 52.954,
+      "fim": 53.339
+    },
+    {
+      "texto": "tempo,",
+      "inicio": 53.339,
+      "fim": 53.723
+    },
+    {
+      "texto": "com",
+      "inicio": 53.723,
+      "fim": 54.108
+    },
+    {
+      "texto": "as",
+      "inicio": 54.108,
+      "fim": 54.493
+    },
+    {
+      "texto": "etiquetas.",
+      "inicio": 54.493,
+      "fim": 54.877
+    },
+    {
+      "texto": "No",
+      "inicio": 55.327,
+      "fim": 55.712
+    },
+    {
+      "texto": "MikroTik,",
+      "inicio": 55.712,
+      "fim": 56.096
+    },
+    {
+      "texto": "criar",
+      "inicio": 56.096,
+      "fim": 56.481
+    },
+    {
+      "texto": "uma",
+      "inicio": 56.481,
+      "fim": 56.865
+    },
+    {
+      "texto": "VLAN",
+      "inicio": 56.865,
+      "fim": 57.25
+    },
+    {
+      "texto": "é",
+      "inicio": 57.25,
+      "fim": 57.635
+    },
+    {
+      "texto": "questão",
+      "inicio": 57.635,
+      "fim": 58.019
+    },
+    {
+      "texto": "de",
+      "inicio": 58.019,
+      "fim": 58.404
+    },
+    {
+      "texto": "poucas",
+      "inicio": 58.404,
+      "fim": 58.789
+    },
+    {
+      "texto": "linhas.",
+      "inicio": 58.789,
+      "fim": 59.173
+    },
+    {
+      "texto": "Primeiro",
+      "inicio": 59.173,
+      "fim": 59.558
+    },
+    {
+      "texto": "a",
+      "inicio": 59.558,
+      "fim": 59.942
+    },
+    {
+      "texto": "interface,",
+      "inicio": 59.942,
+      "fim": 60.327
+    },
+    {
+      "texto": "depois",
+      "inicio": 60.327,
+      "fim": 60.712
+    },
+    {
+      "texto": "um",
+      "inicio": 60.712,
+      "fim": 61.096
+    },
+    {
+      "texto": "endereço",
+      "inicio": 61.096,
+      "fim": 61.481
+    },
+    {
+      "texto": "para",
+      "inicio": 61.481,
+      "fim": 61.865
+    },
+    {
+      "texto": "ela.",
+      "inicio": 61.865,
+      "fim": 62.25
+    },
+    {
+      "texto": "Resumindo:",
+      "inicio": 62.7,
+      "fim": 63.085
+    },
+    {
+      "texto": "separe",
+      "inicio": 63.085,
+      "fim": 63.469
+    },
+    {
+      "texto": "por",
+      "inicio": 63.469,
+      "fim": 63.854
+    },
+    {
+      "texto": "confiança.",
+      "inicio": 63.854,
+      "fim": 64.238
+    },
+    {
+      "texto": "Trabalho",
+      "inicio": 64.238,
+      "fim": 64.623
+    },
+    {
+      "texto": "de",
+      "inicio": 64.623,
+      "fim": 65.008
+    },
+    {
+      "texto": "um",
+      "inicio": 65.008,
+      "fim": 65.392
+    },
+    {
+      "texto": "lado,",
+      "inicio": 65.392,
+      "fim": 65.777
+    },
+    {
+      "texto": "pessoal",
+      "inicio": 65.777,
+      "fim": 66.162
+    },
+    {
+      "texto": "do",
+      "inicio": 66.162,
+      "fim": 66.546
+    },
+    {
+      "texto": "outro,",
+      "inicio": 66.546,
+      "fim": 66.931
+    },
+    {
+      "texto": "e",
+      "inicio": 66.931,
+      "fim": 67.315
+    },
+    {
+      "texto": "os",
+      "inicio": 67.315,
+      "fim": 67.7
+    },
+    {
+      "texto": "aparelhos",
+      "inicio": 67.7,
+      "fim": 68.085
+    },
+    {
+      "texto": "de",
+      "inicio": 68.085,
+      "fim": 68.469
+    },
+    {
+      "texto": "internet",
+      "inicio": 68.469,
+      "fim": 68.854
+    },
+    {
+      "texto": "das",
+      "inicio": 68.854,
+      "fim": 69.238
+    },
+    {
+      "texto": "coisas",
+      "inicio": 69.238,
+      "fim": 69.623
+    },
+    {
+      "texto": "isolados,",
+      "inicio": 69.623,
+      "fim": 70.008
+    },
+    {
+      "texto": "sem",
+      "inicio": 70.008,
+      "fim": 70.392
+    },
+    {
+      "texto": "acesso",
+      "inicio": 70.392,
+      "fim": 70.777
+    },
+    {
+      "texto": "ao",
+      "inicio": 70.777,
+      "fim": 71.162
+    },
+    {
+      "texto": "resto.",
+      "inicio": 71.162,
+      "fim": 71.546
+    },
+    {
+      "texto": "No",
+      "inicio": 71.996,
+      "fim": 72.381
+    },
+    {
+      "texto": "próximo",
+      "inicio": 72.381,
+      "fim": 72.765
+    },
+    {
+      "texto": "vídeo,",
+      "inicio": 72.765,
+      "fim": 73.15
+    },
+    {
+      "texto": "eu",
+      "inicio": 73.15,
+      "fim": 73.534
+    },
+    {
+      "texto": "monto",
+      "inicio": 73.534,
+      "fim": 73.919
+    },
+    {
+      "texto": "essas",
+      "inicio": 73.919,
+      "fim": 74.304
+    },
+    {
+      "texto": "VLANs",
+      "inicio": 74.304,
+      "fim": 74.688
+    },
+    {
+      "texto": "de",
+      "inicio": 74.688,
+      "fim": 75.073
+    },
+    {
+      "texto": "verdade",
+      "inicio": 75.073,
+      "fim": 75.458
+    },
+    {
+      "texto": "no",
+      "inicio": 75.458,
+      "fim": 75.842
+    },
+    {
+      "texto": "meu",
+      "inicio": 75.842,
+      "fim": 76.227
+    },
+    {
+      "texto": "homelab.",
+      "inicio": 76.227,
+      "fim": 76.611
+    },
+    {
+      "texto": "Se",
+      "inicio": 76.611,
+      "fim": 76.996
+    },
+    {
+      "texto": "inscreve",
+      "inicio": 76.996,
+      "fim": 77.381
+    },
+    {
+      "texto": "para",
+      "inicio": 77.381,
+      "fim": 77.765
+    },
+    {
+      "texto": "não",
+      "inicio": 77.765,
+      "fim": 78.15
+    },
+    {
+      "texto": "perder.",
+      "inicio": 78.15,
+      "fim": 78.534
+    }
+  ]
+}

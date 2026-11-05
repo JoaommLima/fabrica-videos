@@ -1,0 +1,84 @@
+{
+  "titulo": "VLAN explicada: uma rede física, várias redes separadas",
+  "mostrarLegenda": true,
+  "blocos": [
+    {
+      "id": "b01",
+      "narracao": "Sabe aquela câmera barata que você colocou na sua rede? Ela está no mesmo lugar que o seu computador do trabalho.",
+      "cena": { "tipo": "abertura", "selo": "REDES • EP. 01", "titulo": "Uma rede. Várias redes.", "subtitulo": "O que é VLAN e por que o seu homelab precisa de uma" }
+    },
+    {
+      "id": "b02",
+      "narracao": "Numa rede doméstica comum, tudo conversa com tudo: o PC, o celular, a TV e aquela câmera. Se um aparelho for invadido, o caminho até os outros está livre.",
+      "cena": {
+        "tipo": "diagrama",
+        "titulo": "A rede de casa típica",
+        "nos": [
+          { "id": "net", "rotulo": "Internet", "icone": "internet", "x": 5, "y": 50 },
+          { "id": "rt", "rotulo": "Roteador", "icone": "roteador", "x": 30, "y": 50 },
+          { "id": "sw", "rotulo": "Switch", "icone": "switch", "x": 55, "y": 50 },
+          { "id": "pc", "rotulo": "PC", "icone": "pc", "x": 85, "y": 8 },
+          { "id": "cel", "rotulo": "Celular", "icone": "celular", "x": 85, "y": 50 },
+          { "id": "cam", "rotulo": "Câmera", "icone": "wifi", "x": 85, "y": 92 }
+        ],
+        "ligacoes": [["net", "rt"], ["rt", "sw"], ["sw", "pc"], ["sw", "cel"], ["sw", "cam"]],
+        "pacote": ["cam", "sw", "pc"]
+      }
+    },
+    {
+      "id": "b03",
+      "narracao": "A VLAN resolve isso. Com o mesmo switch e os mesmos cabos, você cria redes virtuais separadas. Cada grupo de aparelhos só enxerga quem está no próprio grupo.",
+      "cena": {
+        "tipo": "diagrama",
+        "titulo": "Com VLANs",
+        "grupos": { "v10": "VLAN 10 · Trabalho", "v20": "VLAN 20 · Pessoal", "v30": "VLAN 30 · IoT" },
+        "nos": [
+          { "id": "rt", "rotulo": "Roteador", "icone": "roteador", "x": 12, "y": 50 },
+          { "id": "sw", "rotulo": "Switch gerenciável", "icone": "switch", "x": 45, "y": 50 },
+          { "id": "pc", "rotulo": "PC", "icone": "pc", "x": 80, "y": 8, "grupo": "v10" },
+          { "id": "cel", "rotulo": "Celular", "icone": "celular", "x": 80, "y": 50, "grupo": "v20" },
+          { "id": "cam", "rotulo": "Câmera", "icone": "wifi", "x": 80, "y": 92, "grupo": "v30" }
+        ],
+        "ligacoes": [["rt", "sw"], ["sw", "pc"], ["sw", "cel"], ["sw", "cam"]]
+      }
+    },
+    {
+      "id": "b04",
+      "narracao": "O segredo é uma etiqueta. Cada pacote que passa pelo cabo ganha um número, o VLAN ID, definido no padrão IEEE 802.1Q. São doze bits, o que dá até 4094 redes possíveis.",
+      "cena": { "tipo": "numero", "valor": 4094, "legenda": "VLANs possíveis com os 12 bits do padrão 802.1Q" }
+    },
+    {
+      "id": "b05",
+      "narracao": "E aqui entram dois tipos de porta. A porta de acesso pertence a uma VLAN só. A porta tronco carrega várias VLANs ao mesmo tempo, com as etiquetas.",
+      "cena": {
+        "tipo": "comparacao",
+        "titulo": "Acesso × Tronco",
+        "esquerda": { "titulo": "Porta de acesso", "itens": ["Uma VLAN só", "Pacote sai sem etiqueta", "Vai para o aparelho final"] },
+        "direita": { "titulo": "Porta tronco", "itens": ["Várias VLANs juntas", "Pacotes com etiqueta 802.1Q", "Liga switch, roteador e AP"] }
+      }
+    },
+    {
+      "id": "b06",
+      "narracao": "No MikroTik, criar uma VLAN é questão de poucas linhas. Primeiro a interface, depois um endereço para ela.",
+      "cena": {
+        "tipo": "terminal",
+        "titulo": "Na prática: RouterOS",
+        "linhas": [
+          { "cmd": "/interface vlan add name=vlan30-iot vlan-id=30 interface=bridge" },
+          { "cmd": "/ip address add address=10.30.0.1/24 interface=vlan30-iot" },
+          { "cmd": "/interface vlan print", "saida": " #  NAME        MTU  VLAN-ID  INTERFACE\n 0  vlan30-iot  1500      30  bridge" }
+        ]
+      }
+    },
+    {
+      "id": "b07",
+      "narracao": "Resumindo: separe por confiança. Trabalho de um lado, pessoal do outro, e os aparelhos de internet das coisas isolados, sem acesso ao resto.",
+      "cena": { "tipo": "lista", "titulo": "Regra de ouro", "itens": ["Separe por nível de confiança", "IoT sempre isolado", "Firewall decide quem fala com quem"] }
+    },
+    {
+      "id": "b08",
+      "narracao": "No próximo vídeo, eu monto essas VLANs de verdade no meu homelab. Se inscreve para não perder.",
+      "cena": { "tipo": "encerramento", "titulo": "Próximo episódio", "texto": "Montando as VLANs no homelab, passo a passo" }
+    }
+  ]
+}

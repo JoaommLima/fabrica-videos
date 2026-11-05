@@ -1,0 +1,38 @@
+{
+  "nomeCanal": "JM Lab",
+  "nicho": "Redes, homelab e tecnologia explicada, em português do Brasil",
+  "publico": "Curiosos de tecnologia, quem está montando a primeira rede/homelab e profissionais de TI iniciantes",
+  "idioma": "pt-BR",
+  "tema": {
+    "nomeCanal": "JM Lab",
+    "corFundo": "#0a1018",
+    "corFundo2": "#132033",
+    "corTexto": "#eef3f8",
+    "corSuave": "#8fa3b8",
+    "corDestaque": "#3ee6a8",
+    "corDestaque2": "#5aa9ff",
+    "corPerigo": "#ff6b6b",
+    "fonteTexto": "Inter",
+    "fonteCodigo": "JetBrains Mono"
+  },
+  "voz": {
+    "motor": "f5-tts",
+    "amostra": "canal/voz/amostra.wav",
+    "transcricaoAmostra": "canal/voz/amostra.txt",
+    "velocidade": 1.0
+  },
+  "producao": {
+    "videosPorSemana": 2,
+    "shortsPorVideo": 3,
+    "duracaoAlvoMinutos": [8, 12],
+    "loudnessAlvoLUFS": -14
+  },
+  "publicacao": {
+    "privacidadeInicial": "private",
+    "diasDePostagem": ["terca", "sexta"],
+    "horario": "18:00",
+    "fusoHorario": "America/Sao_Paulo",
+    "marcarUsoDeIA": true,
+    "categoriaYoutube": 28
+  }
+}

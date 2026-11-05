@@ -1,0 +1,19 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# arquivos gerados por vídeo
+videos/*/saida/
+videos/*/audio/
+out/
+
+# sua voz e áudio de terceiros (pesados / pessoais)
+canal/voz/*.wav
+canal/voz/*.mp3
+canal/trilhas/
+
+# credenciais do YouTube — NUNCA subir
+client_secret*.json
+token*.json
+.env

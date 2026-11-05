@@ -5,7 +5,7 @@
   "idioma": "pt-BR",
   "tema": {
     "_comentario": "estilo = neon | bancada | caderno | revista (presets em engine/src/estilos.json). Qualquer cor/fonte daqui sobrescreve o preset.",
-    "estilo": "neon",
+    "estilo": "bancada",
     "nomeCanal": "JM Lab"
   },
   "voz": {

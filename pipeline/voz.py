@@ -338,6 +338,28 @@ def comparar(frase: str):
     print("✔ ouça os 4 arquivos em canal\\voz\\ e copie os números do preferido para \"voz\" em canal\\config.json")
 
 
+def frase_pronuncia(fala: str) -> str:
+    """Frase curta em volta do termo: modelos de voz soam melhor com contexto do que com a palavra sozinha."""
+    return f"Hoje a gente vai falar de {fala}."
+
+
+def gerar_pronuncias(fila_json: str):
+    """Gera os áudios de teste da aba Pronúncia (um arquivo por termo, guardado para tocar na hora)."""
+    fila = json.loads(Path(fila_json).read_text(encoding="utf-8"))
+    if not fila:
+        return
+    cfg = carregar(RAIZ / "canal" / "config.json")["voz"]
+    _marca("@@progresso 0.05 Carregando o modelo de voz")
+    voz = Voz(RAIZ / cfg["amostra"], cfg)
+    for k, item in enumerate(fila):
+        _marca(f"@@progresso {0.2 + 0.8 * k / len(fila):.3f} Gerando “{item['fala']}” ({k + 1} de {len(fila)})")
+        destino = RAIZ / item["arquivo"]
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        voz.falar(frase_pronuncia(item["fala"]), destino, semente=1)
+        print(f"  ♪ {item['fala']}")
+    print("✔ pronto")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pasta", help="videos/<slug>  |  teste  |  comparar")
@@ -347,6 +369,9 @@ def main():
     a = ap.parse_args()
     if a.pasta == "teste":
         teste(a.frase or "Olá! Esse é um teste da minha voz clonada para o canal.")
+        return
+    if a.pasta == "pronuncia":
+        gerar_pronuncias(a.frase)
         return
     if a.pasta == "comparar":
         comparar(a.frase or "Sabe aquela câmera barata que você colocou na sua rede? Ela está no mesmo lugar que o seu computador do trabalho!")

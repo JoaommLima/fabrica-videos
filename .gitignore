@@ -17,3 +17,4 @@ canal/trilhas/
 client_secret*.json
 token*.json
 .env
+canal/voz/pron/

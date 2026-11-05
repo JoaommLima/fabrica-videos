@@ -222,9 +222,39 @@ def passos_para(acao: str, slug: str | None, dados: dict) -> tuple[str, list] | 
     if acao == "testarVoz":
         frase = (dados.get("frase") or "").strip()[:400] or "Fala pessoal, hoje a gente vai entender o que é uma VLAN."
         return "Testar voz", [("Teste", voz("teste", frase))]
+    if acao == "pronuncia":
+        itens = [str(f).strip()[:120] for f in dados.get("falas", []) if str(f).strip()][:60]
+        fila = [{"fala": f, "arquivo": arquivo_pronuncia(f)} for f in dict.fromkeys(itens) if not (RAIZ / arquivo_pronuncia(f)).exists()]
+        if not fila:
+            return None
+        pasta = RAIZ / "canal" / "voz" / "pron"
+        pasta.mkdir(parents=True, exist_ok=True)
+        (pasta / "_fila.json").write_text(json.dumps(fila, ensure_ascii=False), encoding="utf-8")
+        nome = f"Ouvir “{fila[0]['fala']}”" if len(fila) == 1 else f"Gerar {len(fila)} pronúncias"
+        return nome, [("Pronúncia", voz("pronuncia", str(pasta / "_fila.json")))]
     if acao == "atualizar":
         return "Atualizar a fábrica (git pull)", [("git pull", ["git", "pull"])]
     return None
+
+
+# ───────────────────────── pronúncia ─────────────────────────
+def arquivo_pronuncia(fala: str) -> str:
+    """Nome do áudio guardado: muda se a fala ou o ajuste da voz mudar (aí gera de novo)."""
+    import hashlib
+
+    v = cfg_canal().get("voz", {})
+    chave = json.dumps([fala, v.get("expressividade"), v.get("cfgPeso"), v.get("temperatura"), mtime(RAIZ / "canal" / "voz" / "amostra.wav")])
+    return f"canal/voz/pron/{hashlib.sha1(chave.encode('utf-8')).hexdigest()[:14]}.wav"
+
+
+def audios_pronuncia(falas: list[str]) -> dict:
+    out = {}
+    for f in falas:
+        f = str(f).strip()[:120]
+        rel = arquivo_pronuncia(f)
+        if (RAIZ / rel).exists():
+            out[f] = f"/arquivo/{rel}"
+    return out
 
 
 # ───────────────────────── dados para a tela ─────────────────────────
@@ -343,6 +373,7 @@ PERMITIDOS = [
     re.compile(r"videos/[\w.-]+/saida/[\w.-]+\.(mp4|png|wav|txt|json)"),
     re.compile(r"videos/[\w.-]+/audio/[\w.-]+\.wav"),
     re.compile(r"canal/voz/[\w.-]+\.wav"),
+    re.compile(r"canal/voz/pron/[0-9a-f]{14}\.wav"),
     re.compile(r"canal/trilhas/[^/\\]+\.(mp3|wav|m4a|ogg)"),
     re.compile(r"assets/trilhas/[\w.-]+\.(m4a|mp3|wav)"),
 ]
@@ -509,6 +540,9 @@ class H(BaseHTTPRequestHandler):
                 conf.setdefault("tema", {})["nomeCanal"] = nome
             salvar_json(RAIZ / "canal" / "config.json", conf)
             return self._envia(200, {"ok": True})
+
+        if c == "/api/pronuncia/audios":
+            return self._envia(200, audios_pronuncia(dados.get("falas", [])[:200]))
 
         if c == "/api/pronuncia":
             if not isinstance(dados, dict):

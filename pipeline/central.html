@@ -324,33 +324,84 @@ async function salvarVoz() {
 }
 
 // ───────── PRONÚNCIA
+let audiosPron = {}, pendentePron = null;
 async function telaPronuncia() {
   const d = await api('/api/pronuncia');
   const linhas = Object.entries(d).filter(([k]) => !k.startsWith('_'));
   $('#conteudo').innerHTML = `<h1>Pronúncia</h1>
-    <p class="dica">À esquerda, como o termo aparece no roteiro e na legenda. À direita, como a voz deve <b>falar</b>, escrito do jeito que se lê em português. Maiúsculas importam.</p>
+    <p class="dica">À esquerda, como o termo aparece no roteiro e na legenda. À direita, como a voz deve <b>falar</b>, escrito do jeito que se lê em português. Maiúsculas importam.<br>
+    Clique em <b>▶ Ouvir</b> para escutar na hora. Na primeira vez de cada termo a voz é gerada (uns 20–30 s); depois fica guardada e toca instantâneo.</p>
     <div class="card"><table id="tabPron"><tr><th>No roteiro</th><th>Como falar</th><th></th></tr>
       ${linhas.map(([k, v]) => linhaPron(k, v)).join('')}
     </table>
     <div class="linha" style="margin-top:12px">
       <button class="btn" onclick="$('#tabPron').insertAdjacentHTML('beforeend', linhaPron('',''))">+ Adicionar termo</button>
-      <button class="btn pri" onclick="salvarPron()">Salvar</button>
+      <button class="btn pri" onclick="salvarPron().then(()=>avisar('Pronúncia salva.'))">Salvar</button>
+      <button class="btn" onclick="gerarTodasPron()" title="Gera o áudio de todos os termos de uma vez (o modelo de voz carrega uma vez só)">🎙 Gerar todos para ouvir</button>
+      <span class="dica" id="pronStatus"></span>
     </div></div>`;
+  await atualizarAudiosPron();
 }
 function linhaPron(k, v) {
-  return `<tr><td><input type="text" class="pk" value="${esc(k)}"></td><td><input type="text" class="pv" value="${esc(v)}"></td>
-    <td class="linha"><button class="btn peq" onclick="ouvirPron(this)" title="Gera uma frase com esse termo">▶ Ouvir</button>
-    <button class="btn peq perigo" onclick="this.closest('tr').remove()">✕</button></td></tr>`;
+  return `<tr><td><input type="text" class="pk" value="${esc(k)}"></td>
+    <td><input type="text" class="pv" value="${esc(v)}" oninput="marcarLinhaPron(this.closest('tr'))"></td>
+    <td><div class="linha" style="flex-wrap:nowrap">
+      <button class="btn peq bOuvir" onclick="ouvirPron(this.closest('tr'))">▶ Ouvir</button>
+      <span class="estadoPron dica" style="min-width:70px"></span>
+      <button class="btn peq perigo" onclick="this.closest('tr').remove()" title="Remover termo">✕</button>
+      <audio class="pa" preload="none"></audio></div></td></tr>`;
+}
+function falaDa(tr) { return ($('.pv', tr)?.value || '').trim(); }
+function marcarLinhaPron(tr) {
+  const f = falaDa(tr), st = $('.estadoPron', tr), b = $('.bOuvir', tr);
+  if (!st) return;
+  if (pendentePron && pendentePron === f && ultimaTarefa.rodando) { st.innerHTML = '<span class="gira"></span> gerando…'; b.textContent = '⏳ Aguarde'; return; }
+  b.textContent = '▶ Ouvir';
+  st.textContent = audiosPron[f] ? '✓ pronto' : '';
+  st.style.color = audiosPron[f] ? 'var(--ok)' : '';
+}
+async function atualizarAudiosPron() {
+  const trs = [...document.querySelectorAll('#tabPron tr')].filter(tr => $('.pv', tr));
+  try { audiosPron = await api('/api/pronuncia/audios', {falas: trs.map(falaDa).filter(Boolean)}); } catch (e) { audiosPron = {}; }
+  trs.forEach(marcarLinhaPron);
+  const faltam = trs.map(falaDa).filter(f => f && !audiosPron[f]).length;
+  const st = $('#pronStatus'); if (st) st.textContent = faltam ? `${faltam} termo(s) ainda sem áudio` : 'todos os termos prontos para ouvir';
+  if (pendentePron && audiosPron[pendentePron] && !ultimaTarefa.rodando) {
+    const tr = trs.find(t => falaDa(t) === pendentePron);
+    pendentePron = null;
+    if (tr) tocarLinhaPron(tr);
+  }
+}
+function tocarLinhaPron(tr) {
+  document.querySelectorAll('#tabPron audio.pa').forEach(a => a.pause());
+  const a = $('audio.pa', tr), f = falaDa(tr);
+  a.src = audiosPron[f] + (audiosPron[f].includes('?') ? '' : '?v=' + Date.now());
+  const b = $('.bOuvir', tr); b.textContent = '🔊 Tocando';
+  a.onended = () => { b.textContent = '▶ Ouvir'; };
+  a.play().catch(() => { b.textContent = '▶ Ouvir'; avisar('Clique de novo em Ouvir para tocar.'); });
 }
 async function salvarPron() {
   const d = {}; document.querySelectorAll('#tabPron tr').forEach(tr => { const k = $('.pk', tr), v = $('.pv', tr); if (k && k.value.trim() && v.value.trim()) d[k.value.trim()] = v.value.trim(); });
-  await api('/api/pronuncia', d); avisar('Pronúncia salva.');
+  await api('/api/pronuncia', d);
 }
-async function ouvirPron(btn) {
+async function ouvirPron(tr) {
+  const f = falaDa(tr);
+  if (!f) return avisar('Escreva como falar antes de ouvir.');
+  if (audiosPron[f]) return tocarLinhaPron(tr);
+  if (ultimaTarefa.rodando) return avisar('Espere a tarefa atual terminar para gerar um áudio novo.');
   await salvarPron();
-  const termo = $('.pk', btn.closest('tr')).value.trim();
-  await acao('testarVoz', {frase: `Hoje a gente vai falar de ${termo}. ${termo} é importante.`});
-  avisar('Gerando… quando terminar, ouça na aba Voz → “Teste uma frase”.', 5000);
+  try {
+    await api('/api/acao', {acao: 'pronuncia', falas: [f]});
+    pendentePron = f; marcarLinhaPron(tr); lerTarefa();
+  } catch (e) { await atualizarAudiosPron(); if (audiosPron[f]) tocarLinhaPron(tr); else avisar(e.message); }
+}
+async function gerarTodasPron() {
+  if (ultimaTarefa.rodando) return avisar('Espere a tarefa atual terminar.');
+  await salvarPron();
+  const falas = [...document.querySelectorAll('#tabPron .pv')].map(i => i.value.trim()).filter(f => f && !audiosPron[f]);
+  if (!falas.length) return avisar('Todos os termos já estão prontos para ouvir.');
+  try { await api('/api/acao', {acao: 'pronuncia', falas}); avisar(`Gerando ${falas.length} áudios — acompanhe na barra de progresso.`); lerTarefa(); }
+  catch (e) { avisar(e.message); }
 }
 
 // ───────── VISUAL E SOM
@@ -415,9 +466,13 @@ async function lerTarefa() {
     const terminou = ultimaTarefa.rodando && !t.rodando;
     const mudou = t.rodando !== ultimaTarefa.rodando || t.id !== ultimaTarefa.id;
     ultimaTarefa = t;
-    if (terminou) { avisar(t.ok ? '✓ ' + t.titulo + ' — pronto!' : '✗ ' + t.titulo + ' — deu erro, veja o log', 6000); irPara(abaAtual, videoAberto); }
+    if (abaAtual === 'pronuncia') {
+      if (terminou) { if (!t.ok) avisar('✗ ' + t.titulo + ' — deu erro, veja o log', 6000); atualizarAudiosPron(); }
+      else document.querySelectorAll('#tabPron tr').forEach(marcarLinhaPron);
+    }
+    else if (terminou) { avisar(t.ok ? '✓ ' + t.titulo + ' — pronto!' : '✗ ' + t.titulo + ' — deu erro, veja o log', 6000); irPara(abaAtual, videoAberto); }
     else if (mudou && !t.rodando) irPara(abaAtual, videoAberto);
-    else if (mudou) document.querySelectorAll('main button.btn').forEach(b => { if (!/Abrir pasta|Salvar|Adicionar|Usar|Aprovar|Reprovar|✕/.test(b.textContent)) b.disabled = true; });
+    else if (mudou) document.querySelectorAll('main button.btn').forEach(b => { if (!/Abrir pasta|Salvar|Adicionar|Usar|Aprovar|Reprovar|Ouvir|✕/.test(b.textContent)) b.disabled = true; });
   } catch (e) {}
 }
 function fmt(seg) { seg = Math.max(0, Math.round(seg)); return seg >= 60 ? `${Math.floor(seg / 60)} min ${String(seg % 60).padStart(2, '0')} s` : `${seg} s`; }

@@ -153,7 +153,8 @@ class Ouvido:
         import numpy as np
 
         audio, _ = librosa.load(str(wav), sr=16000, mono=True)
-        segs, _ = self.m.transcribe(audio.astype(np.float32), language="pt", word_timestamps=True, initial_prompt=dica[:200], vad_filter=False)
+        # Sem "initial_prompt": passar o texto esperado fazia o Whisper pular trechos (e inflar a nota).
+        segs, _ = self.m.transcribe(audio.astype(np.float32), language="pt", word_timestamps=True, vad_filter=False, condition_on_previous_text=False)
         palavras = [{"texto": w.word.strip(), "inicio": round(w.start, 3), "fim": round(w.end, 3)} for s in segs for w in (s.words or [])]
         return " ".join(p["texto"] for p in palavras), palavras
 
@@ -201,7 +202,7 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
         return
 
     # 1) gerar as falas que faltam (modelo de voz na GPU)
-    voz = Voz(amostra, cfg)
+    voz = Voz(amostra, cfg) if gerar else None
     for b in gerar:
         voz.falar(b["_fala"], adir / f"{b['id']}.wav", semente=1)
         (adir / f"{b['id']}.json").unlink(missing_ok=True)
@@ -210,7 +211,7 @@ def narrar(pasta: Path, refazer: set[str] | None, tudo: bool):
     # 2) conferir (Whisper) — troca de modelo para não estourar os 8 GB da 4060
     #    Os blocos reprovados voltam para a voz com outra semente.
     for rodada in range(1, TENTATIVAS + 1):
-        if rodada == 1:
+        if rodada == 1 and voz is not None:
             voz.liberar()
         ouvido = Ouvido(cfg.get("whisper", "large-v3"))
         reprovados = []

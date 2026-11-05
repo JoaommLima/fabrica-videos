@@ -157,6 +157,50 @@ def renderizar(pasta: Path, short: bool = False, chrome: str | None = None) -> P
 
 
 # ───────────────────────── mixar ─────────────────────────
+def rodar_ffmpeg(args: list[str], etapa: str) -> None:
+    r = subprocess.run([ffmpeg(), "-hide_banner", "-y", *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0:
+        print(f"✗ ffmpeg falhou em: {etapa}")
+        print("\n".join(r.stderr.strip().splitlines()[-25:]))
+        sys.exit(1)
+
+
+def montar_narracao(pasta: Path, blocos: list, destino: Path) -> bool:
+    """Junta os WAVs dos blocos numa trilha só, cada um no seu tempo (biblioteca padrão, sem ffmpeg)."""
+    SR = 24000
+    total = int(sum(b["duracao"] for b in blocos) * SR) + SR
+    buf = bytearray(total * 2)  # mono 16 bits, começa em silêncio
+    algum = False
+    tmp = destino.parent / "_conv.wav"
+    for b in blocos:
+        wav = pasta / "audio" / f"{b['id']}.wav"
+        if not wav.exists():
+            continue
+        fonte = wav
+        try:
+            with wave.open(str(wav), "rb") as w:
+                ok = (w.getnchannels(), w.getsampwidth(), w.getframerate()) == (1, 2, SR)
+        except (wave.Error, EOFError):  # float 32, extensível etc.
+            ok = False
+        if not ok:  # formato diferente: converte para 24 kHz mono 16 bits
+            rodar_ffmpeg(["-i", str(wav), "-ac", "1", "-ar", str(SR), "-c:a", "pcm_s16le", str(tmp)], f"converter {wav.name}")
+            fonte = tmp
+        with wave.open(str(fonte), "rb") as w:
+            dados = w.readframes(w.getnframes())
+        ini = int(b["inicioAudio"] * SR) * 2
+        fim = min(len(buf), ini + len(dados))
+        buf[ini:fim] = dados[: fim - ini]
+        algum = True
+    tmp.unlink(missing_ok=True)
+    if algum:
+        with wave.open(str(destino), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(SR)
+            w.writeframes(bytes(buf))
+    return algum
+
+
 def mixar(pasta: Path, short: bool = False) -> Path:
     cfg = carregar_json(RAIZ / "canal" / "config.json")
     props = carregar_json(pasta / "saida" / "props.json")
@@ -164,39 +208,29 @@ def mixar(pasta: Path, short: bool = False) -> Path:
     final = pasta / "saida" / ("short.mp4" if short else "video.mp4")
     lufs = cfg["producao"]["loudnessAlvoLUFS"]
 
-    entradas, filtros, rotulos = ["-i", str(video)], [], []
-    for i, b in enumerate(props["blocos"], start=1):
-        wav = pasta / "audio" / f"{b['id']}.wav"
-        if not wav.exists():
-            continue
-        entradas += ["-i", str(wav)]
-        atraso = int(b["inicioAudio"] * 1000)
-        filtros.append(f"[{len(rotulos) + 1}:a]adelay={atraso}|{atraso}[n{len(rotulos)}]")
-        rotulos.append(f"[n{len(rotulos)}]")
-
-    if not rotulos:
+    narracao = pasta / "saida" / "narracao.wav"
+    if not montar_narracao(pasta, props["blocos"], narracao):
         print("⚠ sem narração em audio/ — copiando o vídeo mudo como está.")
         shutil.copy(video, final)
         return final
 
-    trilha = next((p for p in (RAIZ / "canal" / "trilhas").glob("*") if p.suffix.lower() in {".mp3", ".wav", ".m4a"}), None) if (RAIZ / "canal" / "trilhas").exists() else None
-    mix = f"{''.join(rotulos)}amix=inputs={len(rotulos)}:normalize=0[voz]"
-    filtros.append(mix)
+    pasta_trilhas = RAIZ / "canal" / "trilhas"
+    trilha = next((p for p in sorted(pasta_trilhas.glob("*")) if p.suffix.lower() in {".mp3", ".wav", ".m4a"}), None) if pasta_trilhas.exists() else None
+    args = ["-i", str(video), "-i", str(narracao)]
     if trilha:
-        entradas += ["-stream_loop", "-1", "-i", str(trilha)]
-        it = len(rotulos) + 1
-        # trilha baixa e "abaixa" sozinha quando a voz entra (sidechain)
-        filtros.append(f"[{it}:a]volume=0.18[tr]")
-        filtros.append("[tr][voz]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=400[trd]")
-        filtros.append("[voz][trd]amix=inputs=2:duration=first:normalize=0[mx]")
-        ultimo = "[mx]"
+        # trilha baixa que "abaixa" sozinha quando a voz entra (sidechain)
+        args += ["-stream_loop", "-1", "-i", str(trilha)]
+        filtro = (
+            "[1:a]asplit=2[voz][chave];"
+            "[2:a]volume=0.18[tr];"
+            "[tr][chave]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=400[trd];"
+            f"[voz][trd]amix=inputs=2:duration=first:normalize=0,loudnorm=I={lufs}:TP=-1.5:LRA=11[a]"
+        )
     else:
-        ultimo = "[voz]"
-    filtros.append(f"{ultimo}loudnorm=I={lufs}:TP=-1.5:LRA=11[a]")
-
-    cmd = [ffmpeg(), "-y", *entradas, "-filter_complex", ";".join(filtros), "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", str(final)]
-    subprocess.run(cmd, check=True, capture_output=True)
-    print(f"✔ {final.relative_to(RAIZ)}  (áudio normalizado em {lufs} LUFS)")
+        filtro = f"[1:a]loudnorm=I={lufs}:TP=-1.5:LRA=11[a]"
+    args += ["-filter_complex", filtro, "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest", str(final)]
+    rodar_ffmpeg(args, "mixar áudio")
+    print(f"✔ {final.relative_to(RAIZ)}  (áudio normalizado em {lufs} LUFS" + (f", trilha: {trilha.name})" if trilha else ")"))
     return final
 
 

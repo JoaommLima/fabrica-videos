@@ -111,6 +111,7 @@ input[type=range]{width:100%;accent-color:var(--amb)}
     <button data-aba="som">🎨 Visual e som</button>
   </nav>
   <div class="dir">
+    <button class="btn peq" onclick="acao('testarJmlab')" title="Confere a pasta no servidor e manda uma mensagem de teste no Telegram">🏠 Testar JmLab</button>
     <button class="btn peq" onclick="acao('atualizar')" title="Baixa as melhorias mais recentes do GitHub (git pull)">⟳ Atualizar fábrica</button>
   </div>
 </header>
@@ -198,6 +199,7 @@ async function telaVideo(slug) {
       <button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('short',{slug:'${slug}'})">📱 Refazer short</button>
       <button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('thumbs',{slug:'${slug}'})">🖼 Refazer thumbnails</button>
       <button class="btn" onclick="acao('abrirPasta',{slug:'${slug}'})">📂 Abrir pasta</button>
+      ${v.jmlab && v.video ? `<button class="btn" ${ocupado ? 'disabled' : ''} onclick="acao('enviarJmlab',{slug:'${slug}'})" title="Copia vídeo, short, thumbnails e kit para o NAS do servidor (o Jellyfin mostra lá)">🏠 Enviar para o JmLab</button>` : ''}
     </div>
 
     <div class="grade" style="margin-top:18px">

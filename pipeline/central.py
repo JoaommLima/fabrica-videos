@@ -24,6 +24,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from painel import checagens, lj, proximo_horario  # noqa: E402
+import jmlab  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parent.parent
 VIDEOS = RAIZ / "videos"
@@ -57,6 +58,7 @@ class Tarefa:
         self.frac = 0.0
         self.rotulo = ""
         self.faixa = (0.0, 1.0)
+        self.aviso: dict | None = None  # se preenchido, avisa o JmLab (Telegram) ao terminar
 
     def _geral(self) -> float:
         total = sum(self.pesos) or 1
@@ -113,7 +115,7 @@ class Tarefa:
             if len(self.linhas) > 3000:
                 self.linhas = self.linhas[-2000:]
 
-    def iniciar(self, titulo: str, passos: list[tuple]) -> bool:
+    def iniciar(self, titulo: str, passos: list[tuple], aviso: dict | None = None) -> bool:
         with self.trava:
             if self.rodando:
                 return False
@@ -123,6 +125,7 @@ class Tarefa:
             self.pesos = [float(p[2]) if len(p) > 2 else 1.0 for p in passos]
             self.nomes = [p[0] for p in passos]
             self.passo, self.frac, self.rotulo, self.faixa = 0, 0.0, "", (0.0, 1.0)
+            self.aviso = aviso
             passos = [(p[0], p[1]) for p in passos]
         threading.Thread(target=self._rodar, args=(passos,), daemon=True).start()
         return True
@@ -172,6 +175,12 @@ class Tarefa:
         with self.trava:
             self.rodando, self.ok, self.fim = False, ok, time.time()
         self._add("✔ concluído" if ok else "✗ terminou com erro — copie o log e mande para o Claude")
+        if self.aviso is not None:
+            with self.trava:
+                info = {**self.aviso, "segundos": int(self.fim - self.inicio),
+                        "etapa": "" if ok else (self.nomes[self.passo] if self.passo < len(self.nomes) else ""),
+                        "log": [] if ok else [l for l in self.linhas if not l.startswith("⟳")][-10:]}
+            jmlab.aviso(ok, self.titulo, info.get("slug"), info.get("video", ""), info["segundos"], info["etapa"], info["log"])
 
 
 TAREFA = Tarefa()
@@ -185,7 +194,23 @@ def voz(*args: str) -> list[str]:
     return [str(PY_VOZ), "pipeline/voz.py", *args]
 
 
+def jm(*args: str) -> list[str]:
+    return [str(PY_BASE), "pipeline/jmlab.py", *args]
+
+
+# ações demoradas: ao terminar, enviam o resultado ao JmLab e avisam no Telegram
+ENVIA_JMLAB = {"produzir", "longo", "short", "remixar", "thumbs"}
+AVISA_JMLAB = ENVIA_JMLAB | {"refazerTudo", "enviarJmlab"}
+
+
 def passos_para(acao: str, slug: str | None, dados: dict) -> tuple[str, list] | None:
+    plano = _passos(acao, slug, dados)
+    if plano and slug and acao in ENVIA_JMLAB and jmlab.config()["ativo"]:
+        plano[1].append(("Enviar para o JmLab", jm("enviar", f"videos/{slug}"), 2))
+    return plano
+
+
+def _passos(acao: str, slug: str | None, dados: dict) -> tuple[str, list] | None:
     v = f"videos/{slug}" if slug else ""
     if acao == "produzir":
         return "Produzir vídeo completo", [
@@ -194,6 +219,12 @@ def passos_para(acao: str, slug: str | None, dados: dict) -> tuple[str, list] | 
             ("Short: cenas", fab("renderizar", v, "--short"), 24),
             ("Short: áudio", fab("mixar", v, "--short"), 4),
         ]
+    if acao == "enviarJmlab":
+        if not slug:
+            return None
+        return "Enviar para o JmLab", [("Copiar para o NAS", jm("enviar", v))]
+    if acao == "testarJmlab":
+        return "Testar ligação com o JmLab", [("Testar", jm("testar"))]
     if acao == "narrar":
         return "Gerar narração", [("Narração", voz(v))]
     if acao == "refazer":
@@ -317,6 +348,7 @@ def detalhe_video(slug: str) -> dict:
         "video": arq("video.mp4"),
         "short": arq("short.mp4"),
         "thumbs": [arq(f"thumb-{i}.png") for i in (1, 2, 3)],
+        "jmlab": jmlab.config()["ativo"],
         "blocos": blocos,
         "checagens": [{"nivel": n, "titulo": t, "detalhe": d} for n, t, d in checagens(p)],
         "publicacao": {
@@ -497,7 +529,10 @@ class H(BaseHTTPRequestHandler):
             plano = passos_para(acao, slug, dados)
             if not plano:
                 return self._envia(400, {"erro": "ação inválida"})
-            if not TAREFA.iniciar(*plano):
+            aviso = None
+            if acao in AVISA_JMLAB and jmlab.config()["ativo"]:
+                aviso = {"slug": slug, "video": lj(VIDEOS / slug / "roteiro.json", {}).get("titulo", slug) if slug else ""}
+            if not TAREFA.iniciar(*plano, aviso=aviso):
                 return self._envia(409, {"erro": "Já tem uma tarefa rodando. Espere terminar."})
             return self._envia(200, {"ok": True})
 
@@ -518,6 +553,9 @@ class H(BaseHTTPRequestHandler):
             dados["decididoEm"] = dt.datetime.now().isoformat(timespec="seconds")
             dados["historico"] = anterior.get("historico", []) + [{"estado": dados["estado"], "motivo": dados.get("motivo", ""), "em": dados["decididoEm"]}]
             salvar_json(pasta / "status.json", dados)
+            if jmlab.config()["ativo"] and (pasta / "saida" / "video.mp4").exists():
+                # leva a decisão (título, capa escolhida) para o JmLab; se já tem tarefa rodando, fica para depois
+                TAREFA.iniciar("Enviar para o JmLab", [("Copiar para o NAS", jm("enviar", f"videos/{s}"))])
             return self._envia(200, {"ok": True})
 
         if c == "/api/config":

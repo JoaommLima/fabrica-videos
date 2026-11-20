@@ -24,6 +24,7 @@ roteiro (Claude Code) → voz clonada (RTX 4060) → checagem de pronúncia (Whi
 | Música de fundo + efeitos sonoros (originais) | ✅ pronto |
 | Upload pela YouTube Data API (privado + agendado) | ⏳ |
 | Fila de temas | ⏳ |
+| Integração com o servidor JmLab (NAS, Jellyfin, aviso no Telegram) | ✅ pronto |
 
 ## Instalação (Windows)
 
@@ -51,6 +52,17 @@ cd engine; npx remotion studio
 ```
 
 Ou simplesmente abra a pasta no Claude Code e peça: *"faz um vídeo sobre DNS"* (veja `CLAUDE.md`).
+
+## Servidor de casa (JmLab)
+
+Com `jmlab.ativo = true` em `canal/config.json`, toda produção na Central termina copiando
+vídeo, short, thumbnails e kit para `\\jmlab\arquivos\fabrica\<slug>\` (o render continua no
+disco do PC; se o servidor estiver fora do ar, só avisa). A Central também deixa um bilhete em
+`_avisos/` e o servidor manda no Telegram se deu certo ou onde parou. O token fica só no servidor.
+
+- Testar: botão **🏠 Testar JmLab** na Central, ou `python pipeline\jmlab.py testar`.
+- Instalar no servidor: copie a pasta `jmlab/` para lá e rode `sudo bash instalar-servidor.sh`.
+- Jellyfin: biblioteca do tipo *Vídeos caseiros* apontando para a pasta `fabrica` (lê `video.nfo` e `poster.png`).
 
 ## Tipos de cena
 

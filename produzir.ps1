@@ -18,6 +18,7 @@ Rodar "1/4 Narrando com a sua voz" ".\.venv-voz\Scripts\python.exe" @("pipeline\
 Rodar "2/4 Video longo (16:9) + thumbnails + kit" ".\.venv\Scripts\python.exe" @("pipeline\fabrica.py", "tudo", $Pasta)
 Rodar "3/4 Short (9:16): cenas" ".\.venv\Scripts\python.exe" @("pipeline\fabrica.py", "renderizar", $Pasta, "--short")
 Rodar "4/4 Short (9:16): audio" ".\.venv\Scripts\python.exe" @("pipeline\fabrica.py", "mixar", $Pasta, "--short")
+Rodar "Extra: enviar para o JmLab" ".\.venv\Scripts\python.exe" @("pipeline\jmlab.py", "enviar", $Pasta)
 
 Write-Host ""
 Write-Host "Pronto! Revise e aprove no painel: PAINEL.bat" -ForegroundColor Green

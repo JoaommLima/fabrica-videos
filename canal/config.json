@@ -41,5 +41,11 @@
     "volumeMusica": 0.16,
     "volumeEfeitos": 0.6,
     "trilha": "auto"
+  },
+  "jmlab": {
+    "_comentario": "Servidor de casa. pasta = compartilhamento do NAS; avisos = bilhetes que o servidor manda no Telegram (o token fica só no servidor).",
+    "ativo": true,
+    "pasta": "\\\\jmlab\\arquivos\\fabrica",
+    "avisos": true
   }
 }

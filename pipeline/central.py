@@ -264,7 +264,7 @@ def _passos(acao: str, slug: str | None, dados: dict) -> tuple[str, list] | None
         nome = f"Ouvir “{fila[0]['fala']}”" if len(fila) == 1 else f"Gerar {len(fila)} pronúncias"
         return nome, [("Pronúncia", voz("pronuncia", str(pasta / "_fila.json")))]
     if acao == "atualizar":
-        return "Atualizar a fábrica (git pull)", [("git pull", ["git", "pull"])]
+        return "Atualizar a fábrica (git pull)", [("git pull", ["git", "pull", "--autostash"])]
     return None
 
 
